@@ -1,0 +1,2697 @@
+{\rtf1\ansi\ansicpg936\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 111}
+
+
+
+**项目概述**
+
+目标是创建一个Web应用程序，允许用户上传文件（或粘贴文本），使用哈夫曼编码进行压缩或解压缩，并能下载结果文件。应用需展示压缩效率和处理时间，并提供友好的用户体验。
+
+**1. 核心功能：哈夫曼编码实现 (Python)**
+
+- **哈夫曼树构建:**
+    - 统计输入数据（文件字节流或文本字符）中各符号（字节/字符）的出现频率。
+    - 使用优先队列（`heapq` 模块）构建哈夫曼树：
+        - 将每个符号及其频率作为一个节点放入最小堆。
+        - 重复取出频率最低的两个节点，合并为一个新节点（频率为两者之和），并将新节点放回堆中，直至堆中只剩一个根节点。
+- **生成哈夫曼编码:**
+    - 从哈夫曼树的根节点开始遍历，向左子树走记为'0'，向右子树走记为'1'。
+    - 到达叶子节点时，路径组成的二进制字符串即为该叶子节点代表符号的哈夫曼编码。
+    - 将所有符号的编码存储在一个字典中（例如 `{'a': '01', 'b': '110', ...}`）。
+- **压缩过程:**
+    - **读取文件:** 以二进制模式 (`'rb'`) 读取源文件。
+    - **构建频率表和哈夫曼树:** 基于文件内容统计频率并构建树。
+    - **编码:** 遍历文件内容，使用生成的哈夫曼编码表将每个字节/字符替换为其对应的编码。
+    - **打包:**
+        - **存储频率表/树结构:** 这是解压缩的关键！必须将频率信息或能够重建树的信息写入压缩文件的头部。常见方法是序列化频率表（例如，存储 `(byte, frequency)` 对）。
+        - **存储编码数据:** 将连接起来的二进制编码字符串按位（bit）写入文件。注意处理最后一个字节可能需要的填充位（padding），并记录填充了多少位。
+        - **文件格式:** 设计一个简单的文件格式，例如：`[频率表信息][填充位数信息][编码后的数据流]`。
+    - **写入文件:** 将打包好的数据以二进制模式 (`'wb'`) 写入目标压缩文件（通常使用 `.huff` 或自定义扩展名）。
+- **解压缩过程:**
+    - **读取文件:** 以二进制模式 (`'rb'`) 读取压缩文件。
+    - **解析头部:** 读取频率表信息和填充位数信息。
+    - **重建哈夫曼树:** 根据读取的频率信息重新构建哈夫曼树。
+    - **解码:** 读取编码后的数据流（注意处理填充位）。从哈夫曼树的根开始，根据数据流中的 '0' 或 '1' 向左或向右移动，到达叶子节点时，输出该叶子节点代表的符号（字节/字符），然后回到根节点继续处理下一个比特，直至数据流结束。
+    - **写入文件:** 将解码得到的字节/字符流以二进制模式 (`'wb'`) 写入目标解压缩文件。
+
+**2. 支持的文件类型建议**
+
+- **最适合:** 文本文件（`.txt`, `.csv`, `.json`, `.xml`, `.html`, `.css`, `.js`, `.py` 等）。这些文件通常包含大量重复的字符或模式，哈夫曼编码效果较好。
+- **效果可能一般或差:**
+    - 二进制文件（`.exe`, `.dll`, `.so`, `.app`）。
+    - 已经高度压缩的文件（`.zip`, `.rar`, `.gz`, `.jpg`, `.png`, `.mp3`, `.mp4`）。对这些文件进行哈夫曼编码可能几乎没有压缩效果，甚至可能因为加入了频率表等元数据而导致文件变大。
+- **实现建议:**
+    - 可以允许用户上传任何类型的文件。
+    - 在界面上明确提示：**“哈夫曼编码对文本类文件效果最佳，对已压缩文件或二进制文件可能效果不佳甚至增大体积。”**
+    - 可以根据文件扩展名进行初步判断并给出提示，但不强制限制上传类型。
+
+**3. 技术栈建议**
+
+- **后端:** **Flask** 或 **FastAPI** (Python)
+    - **Flask:** 轻量级，易于上手，非常适合中小型项目和API。社区成熟，扩展丰富。
+    - **FastAPI:** 性能高，基于现代Python特性（类型提示），自动生成API文档，开发效率高。如果追求性能和现代特性，是很好的选择。
+    - _(Django 也可以，但对于这个项目来说可能过于庞大)_
+- **核心逻辑:** 标准 Python 库 (`collections.Counter`, `heapq` 用于哈夫曼树构建)，无需额外依赖特定压缩库。
+- **前端:**
+    - **HTML:** 结构
+    - **CSS:** 样式 (可以使用 **Bootstrap** 或 **Tailwind CSS** 框架来快速构建美观且响应式的界面)
+    - **JavaScript:** 交互逻辑 (可以使用原生 JS，或者轻量级库如 **Alpine.js**，如果交互复杂也可以考虑 **Vue.js** 或 **React**，但对于此项目可能非必需)
+- **前后端通信:** 使用 `Workspace` API 或 `XMLHttpRequest` (原生 JS) 或 `axios` (库) 发送异步请求（AJAX）。
+
+**4. Web 界面 (Frontend)**
+
+- **布局:**
+    - 清晰的标题。
+    - 操作模式选择：提供 "压缩" 和 "解压缩" 的切换按钮或选项卡。
+    - 文件上传区域：
+        - 支持点击选择文件 (`<input type="file">`)。
+        - **（优化）** 支持拖拽上传文件。
+        - **（优化）** 提供一个文本区域 (`<textarea>`) 用于直接粘贴文本内容进行压缩（后端将其视为临时文本文件处理）。
+    - 操作按钮：根据模式显示 "开始压缩" 或 "开始解压缩"。
+    - 状态/进度显示：显示 "上传中...", "处理中...", "完成"。
+    - 结果展示区域：
+        - 显示操作结果（成功/失败）。
+        - **压缩后:** 显示压缩耗时、原始大小、压缩后大小、压缩率 (`(1 - 压缩后大小 / 原始大小) * 100%`)。
+        - 提供下载结果文件的链接。
+    - 错误反馈区域：清晰地显示文件大小超限、文件类型不支持（如果做了限制）、处理失败等错误信息。
+- **视觉交互:**
+    - 使用 CSS 框架（如 Bootstrap）简化样式设计，确保美观和响应式布局。
+    - 上传区域可以有视觉反馈（如边框高亮）。
+    - 处理过程中可以显示加载动画（spinner）。
+    - 结果清晰展示，下载链接明确。
+- **JavaScript 逻辑:**
+    - 处理模式切换的 UI 变化。
+    - 处理文件选择、拖拽上传、文本粘贴。
+    - **前端验证:** 检查文件大小（在发送前），检查文件扩展名（如果需要，提供即时反馈）。
+    - 使用 `FormData` 封装文件/文本数据。
+    - 发起异步请求到后端 Flask/FastAPI。
+    - 处理后端返回的 JSON 数据（包含状态、结果、指标、下载链接或错误信息）。
+    - 更新界面显示结果和错误信息。
+
+**5. 文件上传与处理 (Backend & Frontend)**
+
+- **上传方式:**
+    - **读取文件:** 前端使用 `<input type="file">`，JS 获取 `File` 对象，通过 `FormData` 发送给后端。后端框架（Flask/FastAPI）会处理文件上传，将其保存在临时位置或内存中。
+    - **复制粘贴:** 前端提供 `<textarea>`，用户粘贴文本。JS 获取文本内容，通过 `FormData` 或 JSON 发送给后端。后端接收文本字符串，可以直接处理或先保存为临时文件再处理。
+- **大小限制:**
+    - **前端:** JS 在文件选择后、发送前检查 `file.size`。超过限制则提示用户，不发送请求。
+    - **后端:** 必须在后端再次验证文件大小。配置Web服务器（如Nginx/Gunicorn）和Web框架（Flask/FastAPI）允许的最大请求体大小，并在代码中检查接收到的文件大小。超过限制则返回错误响应。
+- **扩展名不支持反馈:**
+    - **前端:** JS 可以在文件选择后检查 `file.name` 的扩展名。如果要做严格限制（虽然不推荐，建议只给提示），可以在前端提示。
+    - **后端:** 可以在后端检查文件名扩展名，如果决定基于扩展名进行不同处理或拒绝，在这里实现逻辑并返回相应错误信息。但核心逻辑应能处理各种字节流。
+- **错误反馈:** 后端遇到任何错误（验证失败、处理异常），应返回统一格式的错误响应（如 JSON `{'status': 'error', 'message': '错误描述'}`），前端 JS 负责解析并展示给用户。
+
+**6. 文件输出路径 (Web Context)**
+
+- **Web 限制:** Web 应用程序出于安全原因，**不能**直接将文件保存到用户本地文件系统的任意指定文件夹或源文件夹。浏览器会控制文件的下载位置（通常是默认的“下载”文件夹，用户可以更改）。
+- **实现方式:**
+    - **后端:** 压缩/解压缩完成后，将结果文件保存在服务器的一个临时、安全的目录下。
+    - **生成下载响应:**
+        - **Flask:** 使用 `send_from_directory` 或 `send_file` 函数，设置 `as_attachment=True`，并指定合适的文件名 (`download_name`)。
+        - **FastAPI:** 返回 `FileResponse` 或 `StreamingResponse`。
+    - **前端:** 后端处理成功后，返回一个包含下载 URL 的响应，或者直接触发浏览器的文件下载。前端可以通过创建一个隐藏的 `<a>` 标签，设置其 `href` 为后端提供的下载 URL 或数据URI，并模拟点击 `a.click()`来启动下载。
+    - **默认文件名:** 可以根据原始文件名生成，例如 `original.txt` 压缩后可以命名为 `original.huff`，解压缩 `original.huff` 后可以命名为 `original_decompressed.txt`。
+
+**7. 系统实现路线 (Step-by-Step)**
+
+1. **环境搭建:**
+    
+    - 安装 Python。
+    - 创建项目目录，设置虚拟环境 (`python -m venv venv`, `source venv/bin/activate` 或 `venv\Scripts\activate`)。
+    - 安装 Flask/FastAPI: `pip install Flask` 或 `pip install fastapi uvicorn`.
+    - (可选) 安装 CSS 框架相关工具（如果使用 Tailwind CSS）。
+2. **核心哈夫曼逻辑实现 (Python Module):**
+    
+    - 创建 `huffman_logic.py` 文件。
+    - 实现计算频率、构建哈夫曼树、生成编码、压缩数据（含头部信息）、解压缩数据（解析头部、解码）的函数。
+    - 编写单元测试，确保压缩和解压缩对于各种输入（空文件、单字符文件、文本文件、少量二进制数据）都能正确工作且可逆。
+3. **后端开发 (Flask/FastAPI):**
+    
+    - 创建主应用文件 (e.g., `app.py`)。
+    - 设置路由 (`/compress`, `/decompress`) 来接收 POST 请求。
+    - 处理文件上传和文本输入，进行安全校验（大小、类型提示）。
+    - 调用 `huffman_logic.py` 中的函数执行压缩/解压缩。
+    - 计算处理时间（`time.time()` 开始和结束）。
+    - 计算压缩率（如果压缩）。
+    - 将结果文件保存在临时目录。
+    - 构造 JSON 响应，包含成功/失败状态、消息、指标（时间、大小、比率）以及指向结果文件的下载路由。
+    - 创建另一个路由 (`/download/<filename>`) 用于提供文件下载服务。
+    - 实现临时文件的清理机制（例如，定时任务或每次请求后清理）。
+4. **前端开发 (HTML, CSS, JS):**
+    
+    - 创建 `templates` 文件夹 (Flask) 或 `static` 文件夹下的 HTML 文件。
+    - 编写 HTML 结构，包含所有必要的元素（选择器、上传区、按钮、结果区等）。
+    - 使用 CSS（或框架）进行样式设计。
+    - 编写 JavaScript (`static/js/main.js`)：
+        - 添加事件监听器（模式切换、文件选择、拖拽、按钮点击、文本粘贴）。
+        - 实现前端验证逻辑。
+        - 编写异步请求函数 (`Workspace`) 向后端发送数据。
+        - 编写处理后端响应的函数，更新 UI（显示结果、指标、错误，触发下载）。
+5. **集成与测试:**
+    
+    - 运行后端服务器 (`flask run` 或 `uvicorn app:app --reload`)。
+    - 在浏览器中打开前端页面。
+    - 全面测试所有功能：压缩、解压缩、不同文件类型、文本粘贴、大小限制、错误处理、下载。
+    - 调试前后端交互问题。
+6. **优化与扩展 (可选):**
+    
+    - **进度条:** 对于大文件，可以尝试实现（可能较复杂）基于流式处理的近似进度条。
+    - **异步处理:** 使用 Celery + Redis/RabbitMQ 将耗时的压缩/解压缩任务放到后台执行，避免请求超时，并通过 WebSocket 或轮询更新前端状态。
+    - **更健壮的文件格式:** 设计更详细的文件头，包含魔数（Magic Number）来标识文件类型、版本号等。
+    - **界面美化:** 进一步优化 UI/UX。
+
+这个路线图提供了一个从核心算法到完整Web应用部署的详细步骤。祝你项目顺利！
+
+
+好的，考虑到你需要自行编写数据结构部分（如优先队列、哈夫曼树节点等），并且要构建一个包含前后端的完整 PyCharm 项目，我为你建议一个清晰且符合 Python 项目规范的文件结构和命名：
+
+```
+huffman_webapp/                  # 项目根目录 (Project Root in PyCharm)
+├── venv/                        # Python 虚拟环境 (PyCharm 通常会自动管理或提示创建)
+│
+├── core_logic/                  # 存放核心哈夫曼编码逻辑的包
+│   ├── __init__.py              # 包初始化文件
+│   ├── data_structures.py       # **关键**: 自行实现的哈夫曼树节点、优先队列(最小堆)等数据结构
+│   ├── huffman_coder.py         # 实现压缩和解压缩的主要逻辑，使用 data_structures.py 中的类
+│   └── frequency_counter.py     # (可选) 单独的文件用于计算频率，或将其放入 huffman_coder.py
+│
+├── web_app/                     # 存放 Web 应用 (Flask/FastAPI) 相关代码的包
+│   ├── __init__.py              # 初始化 Flask/FastAPI 应用实例
+│   ├── routes.py                # 定义 Web 页面的路由 (URL 规则) 和视图函数
+│   ├── forms.py                 # (如果使用 Flask-WTF) 定义表单类用于文件上传等
+│   ├── utils.py                 # Web 应用相关的辅助函数 (如临时文件管理、响应生成)
+│   └── static/                  # 存放静态文件 (CSS, JavaScript, Images)
+│       ├── css/
+│       │   └── style.css        # 主要的 CSS 样式文件
+│       ├── js/
+│       │   └── main.js          # 主要的 JavaScript 交互逻辑文件
+│       └── images/              # 存放项目中使用的图片 (可选)
+│   └── templates/               # 存放 HTML 模板文件
+│       └── index.html           # Web 界面的主 HTML 文件
+│
+├── tests/                       # 存放单元测试和集成测试的目录
+│   ├── __init__.py
+│   ├── test_data_structures.py  # 测试自定义的数据结构
+│   ├── test_huffman_coder.py    # 测试核心压缩/解压缩逻辑
+│   └── test_web_app.py          # 测试 Web 应用的路由和基本功能 (可选)
+│
+├── uploads/                     # **重要**: 存放用户上传的临时文件 (需要手动创建或代码创建，并加入 .gitignore)
+├── downloads/                   # **重要**: 存放处理后待下载的临时文件 (需要手动创建或代码创建，并加入 .gitignore)
+│
+├── config.py                    # (可选) 存放配置变量 (如上传文件大小限制、临时文件夹路径等)
+├── run.py                       # 启动 Web 应用的入口脚本 (例如: `if __name__ == '__main__': app.run()`)
+├── requirements.txt             # 列出项目依赖的 Python 包 (如 Flask, FastAPI, Uvicorn)
+├── README.md                    # 项目说明文件 (介绍、如何安装运行、使用方法等)
+└── .gitignore                   # Git 忽略文件列表 (包括 venv, __pycache__, uploads, downloads, .idea 等)
+
+```
+
+**文件/目录说明:**
+
+1. **`huffman_webapp/`**: 项目的根文件夹。
+2. **`venv/`**: Python 虚拟环境，隔离项目依赖。
+3. **`core_logic/`**: 核心业务逻辑模块。
+    - **`data_structures.py`**: **核心要求**。包含你手动实现的 `HuffmanNode` 类（用于构建树）、`PriorityQueue`类（使用列表和堆操作手动实现，而不是 `import heapq`）。
+    - **`huffman_coder.py`**: 包含 `compress(input_data)` 和 `decompress(input_data)` 函数。这些函数会使用 `data_structures.py` 中定义的类来构建树、生成编码表、执行编解码。
+    - **`frequency_counter.py`**: (可选) 可以把计算字节/字符频率的逻辑单独放在这里，保持 `huffman_coder.py` 更专注于编解码流程。
+4. **`web_app/`**: Web 应用层，负责处理 HTTP 请求和响应。
+    - **`__init__.py`**: 创建 Flask 或 FastAPI 应用实例 (`app = Flask(__name__)` 或 `app = FastAPI()`)。
+    - **`routes.py`**: 定义 URL 路径（如 `/`, `/upload`, `/download/<filename>`）以及处理这些路径请求的 Python 函数（视图函数）。这些函数会调用 `core_logic` 中的功能。
+    - **`forms.py`**: 如果使用 Flask 和 Flask-WTF 扩展，这里定义文件上传表单等，方便验证。
+    - **`utils.py`**: 存放 Web 层的辅助函数，例如安全地保存上传文件到 `uploads/` 目录，生成下载响应，清理临时文件等。
+    - **`static/`**: 存放 CSS、JavaScript、图片等静态资源，Web 服务器可以直接提供给浏览器。
+    - **`templates/`**: 存放 Jinja2 (Flask 默认) 或其他模板引擎的 HTML 文件。
+5. **`tests/`**: 存放测试代码。强烈建议为你手动实现的数据结构编写详细的单元测试。
+6. **`uploads/`**: 用于临时存储用户上传的文件。**必须**将其添加到 `.gitignore`，避免将用户文件提交到版本控制。运行时需要确保此目录存在或由代码创建。
+7. **`downloads/`**: 用于临时存储压缩/解压缩后的文件，以便用户下载。**必须**将其添加到 `.gitignore`。运行时需要确保此目录存在或由代码创建。
+8. **`config.py`**: (可选但推荐) 将配置项（如允许上传的最大文件大小 `MAX_CONTENT_LENGTH`、临时文件路径、密钥等）与代码分离。
+9. **`run.py`**: 简单的脚本，用于启动开发服务器 (e.g., `python run.py`)。
+10. **`requirements.txt`**: 使用 `pip freeze > requirements.txt` 生成，记录项目依赖，方便他人在新环境安装。**不应包含 `heapq` 或其他你被要求手动实现的库**。
+11. **`README.md`**: 非常重要，解释项目是什么、如何安装依赖 (`pip install -r requirements.txt`)、如何运行 (`python run.py`)、API 端点（如果有）、主要功能和限制。
+12. **`.gitignore`**: 告诉 Git 哪些文件或目录不需要纳入版本控制。
+
+这个结构清晰地区分了核心逻辑、Web 交互和静态文件，并明确了放置手动实现数据结构的位置，易于维护和扩展。
+
+好的，基于你选择的文件结构和项目要求（特别是手动实现数据结构），我建议采用**“由内向外”**的编写顺序，即先实现核心算法，再构建 Web 服务，最后完成前端交互。这样可以确保最关键的部分优先得到验证。
+
+以下是一个推荐的详细编写顺序：
+
+1. **环境设置与项目结构初始化 (Setup)**
+    
+    - 在 PyCharm 中创建项目 `huffman_webapp`。
+    - 设置 Python 解释器并创建虚拟环境 (`venv`)。
+    - 按照规划创建所有顶级目录 (`core_logic`, `web_app`, `tests`, `uploads`, `downloads`) 和必要的 `__init__.py` 文件。
+    - 创建 `requirements.txt`, `README.md`, `.gitignore` 的初始版本。在 `.gitignore` 中加入 `venv/`, `__pycache__/`, `*.pyc`, `uploads/`, `downloads/`, `.idea/` 等。
+    - 安装基础依赖：`pip install Flask` (或 `fastapi uvicorn`)。
+2. **核心逻辑 - 数据结构 (Core Logic - Data Structures)**
+    
+    - **重点**: 在 `core_logic/data_structures.py` 中，手动实现：
+        - `HuffmanNode` 类：用于表示哈夫曼树的节点（包含字符/字节、频率、左右子节点引用）。
+        - `PriorityQueue` 类（最小堆）：使用 Python 列表作为底层存储，手动实现 `insert`, `extract_min`, `is_empty`, `heapify` 等必要方法，**不使用 `import heapq`**。
+    - **测试**: 在 `tests/test_data_structures.py` 中编写单元测试，彻底验证 `PriorityQueue` 的正确性（插入、提取最小值、处理空队列等）和 `HuffmanNode` 的基本功能。
+3. **核心逻辑 - 哈夫曼编码器 (Core Logic - Huffman Coder)**
+    
+    - 在 `core_logic/huffman_coder.py` (和 `frequency_counter.py` 如果分开的话) 中实现：
+        - 频率统计函数。
+        - 构建哈夫曼树的函数（使用自定义的 `PriorityQueue` 和 `HuffmanNode`）。
+        - 生成哈夫曼编码表的函数（遍历树）。
+        - `compress` 函数：接收输入数据（字节流），执行完整压缩流程（频率统计 -> 建树 -> 生成编码 -> 编码数据 -> 打包头部和数据 -> 返回压缩后的字节流）。仔细设计头部信息（如何存储频率表/树结构和填充位信息）。
+        - `decompress` 函数：接收压缩数据（字节流），执行完整解压流程（解析头部 -> 重建树 -> 解码数据 -> 返回原始字节流）。
+    - **测试**: 在 `tests/test_huffman_coder.py` 中编写单元测试和集成测试，覆盖各种场景：空文件、单字节文件、纯文本、包含少量不同字节的文件、确保压缩再解压能还原原始数据。
+4. **后端 - 基础设置与路由 (Backend - Basic Setup & Routing)**
+    
+    - 在 `web_app/__init__.py` 中创建 Flask/FastAPI 应用实例 (`app`)。
+    - (可选) 在 `config.py` 中定义配置。
+    - 在 `run.py` 中添加启动代码 (`app.run(...)` 或 `uvicorn.run(...)`)。
+    - 在 `web_app/routes.py` 中定义基本路由，例如 `/` 路由，让它返回一个简单的 "Hello World" 或基础的 HTML 页面，确保 Web 服务器能跑起来。
+    - 创建 `web_app/templates/index.html` 的基本骨架。
+5. **后端 - API 实现 (Backend - API Implementation)**
+    
+    - 在 `web_app/routes.py` 中实现处理文件上传和处理请求的路由（例如 `/process` 或分开的 `/compress`, `/decompress`）。
+    - 使用 `request` 对象 (Flask) 或 Pydantic 模型 (FastAPI) 来接收文件或文本数据。
+    - 添加文件验证逻辑（大小限制等）。
+    - 调用 `core_logic.huffman_coder` 中的 `compress` 或 `decompress` 函数。
+    - 在 `web_app/utils.py` 中实现文件保存到 `uploads/` 和 `downloads/` 目录的辅助函数。 **注意安全性，防止路径遍历攻击**。
+    - 计算压缩时间、压缩率等指标。
+    - 实现临时文件的清理逻辑（可以在 `utils.py` 或使用定时任务）。
+    - 实现文件下载路由（例如 `/download/<filename>`），使用 `send_from_directory` (Flask) 或 `FileResponse` (FastAPI)。
+    - 构造 JSON 响应，返回处理结果、指标和下载链接或错误信息。
+6. **前端 - 界面与交互 (Frontend - UI & Interaction)**
+    
+    - 在 `web_app/templates/index.html` 中构建完整的用户界面：文件选择、拖放区域（可选）、文本粘贴区、模式选择、操作按钮、结果显示区域。
+    - 在 `web_app/static/css/style.css` 中编写 CSS 样式或集成 CSS 框架。
+    - 在 `web_app/static/js/main.js` 中编写 JavaScript 代码：
+        - 处理用户交互（点击、选择文件、粘贴文本、切换模式）。
+        - 执行前端验证（文件大小等）。
+        - 使用 `Workspace` API 异步发送 `FormData` 到后端对应的 API 路由。
+        - 处理后端返回的 JSON 响应。
+        - 更新界面以显示进度、结果（压缩率、时间）、错误信息。
+        - 动态创建或更新下载链接，并可能模拟点击以触发下载。
+7. **集成测试与完善 (Integration Testing & Refinement)**
+    
+    - 全面测试整个流程：从浏览器上传文件 -> 后端处理 -> 前端显示结果 -> 下载文件。
+    - 测试各种边界情况和错误处理。
+    - (可选) 在 `tests/test_web_app.py` 中编写集成测试，模拟 HTTP 请求并验证响应。
+    - 完善 `README.md`，提供详细的安装和使用说明。
+    - 代码审查，清理代码，添加必要的注释。
+
+这个顺序确保你在依赖其他部分之前，核心的、有约束的（手动数据结构）部分已经构建并测试完毕，然后逐步扩展到 Web 层和用户界面。
+
+---
+# step1
+
+好的，在你开始编写 `data_structures.py` 之前，我们需要先搭建好项目的基本环境和目录结构。以下是在你的 macOS M1 Pro 电脑上使用 PyCharm 进行设置的步骤：
+
+**1. 创建项目根目录**
+
+- 你可以在你喜欢的位置（例如“文稿”或“项目”文件夹）创建一个新的文件夹，命名为 `huffman_webapp`。
+    - 可以通过 **Finder** 创建。
+    - 或者打开**终端(Terminal)**，使用命令：
+        
+        Bash
+        
+        ```
+        cd ~/Documents # 或者你想要存放项目的其他路径
+        mkdir huffman_webapp
+        ```
+        
+
+**2. 在 PyCharm 中打开项目**
+
+- 启动 PyCharm。
+- 选择 "Open" (打开)。
+- 导航到你刚刚创建的 `huffman_webapp` 文件夹，选中它，然后点击 "Open"。
+
+**3. 创建并配置 Python 虚拟环境**
+
+- PyCharm 通常会在打开新项目时提示你配置解释器或自动检测到需要设置。如果它没有自动提示，或者你需要手动设置/检查：
+    - 打开 PyCharm 的设置 (Preferences): 点击菜单栏的 `PyCharm` -> `Preferences...` (或者使用快捷键 `⌘,`)。
+    - 在设置窗口左侧导航栏中，找到 `Project: huffman_webapp` -> `Python Interpreter` (Python 解释器)。
+    - 在 "Python Interpreter" 页面，点击右上角的齿轮图标 ⚙️，然后选择 "Add..." (添加解释器)。
+    - 在弹出的 "Add Python Interpreter" 窗口中，选择左侧的 "Virtualenv Environment"。
+    - 确保选中 "New environment" (新建环境)。
+    - **Location (位置):** 检查路径是否指向 `huffman_webapp` 文件夹下的 `venv` 目录 (例如: `/Users/你的用户名/Documents/huffman_webapp/venv`)。这是推荐的位置。
+    - **Base interpreter (基础解释器):** 选择你系统上安装的 Python 3 版本 (PyCharm 通常会自动找到，例如 Python 3.9, 3.10, 3.11 等)。对于 M1 芯片，确保选择的是为 arm64 架构编译的 Python 版本（如果你是通过 `brew` 或官方 `python.org` 安装的，通常没问题）。
+    - **不要** 勾选 "Inherit global site-packages" 和 "Make available to all projects"。
+    - 点击 "OK"。PyCharm 会为你创建虚拟环境。这可能需要一点时间。
+- 创建完成后，你应该会看到解释器列表中显示了这个新的虚拟环境 (`venv`)。底部的包列表现在应该是基本独立的。
+- **验证:** PyCharm 底部的**终端(Terminal)**标签页打开后，命令行提示符前应该会自动显示 `(venv)`，表示虚拟环境已激活。如果没有，你可能需要手动激活（通常不需要在 PyCharm 的终端里手动做）：`source venv/bin/activate`。
+
+**4. 创建项目目录结构**
+
+- 在 PyCharm 左侧的 **Project (项目)** 视图中，右键点击根目录 `huffman_webapp`：
+    - 选择 `New` -> `Directory` (目录)。
+    - 输入目录名并按 Enter。
+- 按照我们之前规划的结构，创建以下目录：
+    - `core_logic`
+    - `web_app`
+    - `tests`
+    - `uploads` (存放上传文件的临时目录)
+    - `downloads` (存放待下载文件的临时目录)
+- 在 `web_app` 目录上右键点击，用同样的方式创建其子目录：
+    - `static`
+    - `templates`
+- 在 `web_app/static` 目录上右键点击，创建其子目录：
+    - `css`
+    - `js`
+    - `images` (如果需要的话)
+
+**5. 创建初始文件**
+
+- 在对应的目录上右键点击：
+    - 选择 `New` -> `Python File` 来创建 `.py` 文件。
+    - 选择 `New` -> `File` 来创建其他类型的文件（如 `.txt`, `.md`, `.gitignore`）。
+- 创建以下文件：
+    - `core_logic/__init__.py` (空文件即可)
+    - `web_app/__init__.py` (空文件即可)
+    - `tests/__init__.py` (空文件即可)
+    - `run.py` (空文件即可，后续添加启动代码)
+    - `requirements.txt` (空文件即可，后续添加依赖)
+    - `README.md` (可以先写个标题 `# Huffman Web App`)
+    - `.gitignore` (用于 Git 版本控制，告诉 Git 忽略哪些文件/目录)
+    - (可选) `config.py` (空文件即可)
+
+**6. 配置 `.gitignore` 文件**
+
+- 打开 `.gitignore` 文件，添加以下内容，这对于 Python 项目和 PyCharm 很常用：
+
+Fragmento de código
+
+```
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+# Usually these files are written by a pyinstaller script; this is potentially
+# redundant, but we include it here for reference.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE / Editor specific files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# macOS / Windows specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files for this project
+uploads/
+downloads/
+*.huff
+*_decompressed.*
+
+```
+
+- **特别注意**: `uploads/` 和 `downloads/` 目录被加入了 `.gitignore`，这样你就不会意外地把用户上传的文件或程序生成的临时文件提交到代码仓库。
+
+**7. (可选) 安装初始依赖**
+
+- 虽然你还没开始写代码，但可以先安装 Web 框架。打开 PyCharm 底部的 **Terminal** (确保 `(venv)` 在提示符前)：
+    - 如果你选择 **Flask**:
+        
+        Bash
+        
+        ```
+        pip install Flask
+        ```
+        
+    - 如果你选择 **FastAPI**:
+        
+        Bash
+        
+        ```
+        pip install "fastapi[all]"
+        # 这会安装 FastAPI, Uvicorn (服务器), pydantic, typing-extensions 等
+        ```
+        
+- 安装完成后，更新 `requirements.txt` 文件，记录下这些依赖：
+    
+    Bash
+    
+    ```
+    pip freeze > requirements.txt
+    ```
+    
+
+现在，你的项目环境和基本结构就已经准备好了！你可以按照之前的建议，开始编写第一个文件 `core_logic/data_structures.py` 的代码了。
+
+
+---
+# step2
+好的，我们开始编码！根据我们之前讨论的“由内向外”的开发顺序，在你用 PyCharm 创建好项目基本结构之后，**第一个需要编写代码的文件**是：
+
+**文件路径:** `huffman_webapp/core_logic/data_structures.py`
+
+**目的:** 这个文件将包含你为哈夫曼算法手动实现的数据结构，特别是用于表示树节点的 `HuffmanNode` 类，以及一个**不使用**标准库 `heapq` 而手动实现的 `PriorityQueue`（最小堆）类。
+
+以下是 `huffman_webapp/core_logic/data_structures.py` 文件的初始代码内容：
+
+Python
+
+```
+# huffman_webapp/core_logic/data_structures.py
+
+import sys # 用于 sys.maxsize，可以代表无穷大或使用 None 检查
+
+class HuffmanNode:
+    """
+    表示哈夫曼树中的一个节点。
+    可以是叶子节点（包含一个符号）或内部节点。
+    节点基于它们的频率进行比较。
+    """
+    def __init__(self, symbol=None, freq=0, left=None, right=None):
+        """
+        初始化一个哈夫曼节点。
+
+        Args:
+            symbol: 符号（字符/字节，用于叶子节点）。内部节点为 None。
+            freq: 符号的频率或子节点频率之和。
+            left: 左子节点。
+            right: 右子节点。
+        """
+        self.symbol = symbol
+        self.freq = freq
+        self.left = left
+        self.right = right
+
+    def is_leaf(self):
+        """检查节点是否为叶子节点。"""
+        return self.left is None and self.right is None
+
+    # 比较方法对于优先队列至关重要
+    def __lt__(self, other):
+        """根据频率比较节点（小于）。"""
+        if not isinstance(other, HuffmanNode):
+            # 不能与其他类型比较
+            return NotImplemented
+        return self.freq < other.freq
+
+    def __eq__(self, other):
+        """根据频率和符号检查相等性（可选，但良好实践）。"""
+        if not isinstance(other, HuffmanNode):
+            return False
+        # 注意：比较内部节点可能仅依赖于频率或标识。
+        # 为了稳定性/测试，可能需要比较结构，但频率是优先队列的关键。
+        return self.freq == other.freq and self.symbol == other.symbol
+
+    def __repr__(self):
+        """提供节点的可读表示形式。"""
+        symbol_repr = f"'{self.symbol}'" if self.symbol is not None else 'Internal'
+        return f"Node({symbol_repr}, Freq:{self.freq})"
+
+
+class PriorityQueue:
+    """
+    一个使用基于列表的二叉堆实现的最小优先队列。
+    构建哈夫曼树时高效所需。
+    **不使用** 内建的 `heapq` 模块。
+    存储项目（预期为 HuffmanNode 实例）。
+    """
+    def __init__(self):
+        """初始化一个空的最小堆。"""
+        # 堆存储为一个列表。索引 0 是根节点。
+        self._heap = []
+
+    def get_size(self):
+        """返回优先队列中的项目数量。"""
+        return len(self._heap)
+
+    def is_empty(self):
+        """检查优先队列是否为空。"""
+        return self.get_size() == 0
+
+    def _parent(self, i):
+        """返回索引 i 处节点的父节点索引。"""
+        # 确保索引有效且不是根节点
+        if i <= 0 or i >= self.get_size():
+             # 或引发错误，-1 表示没有父节点/无效
+            return -1
+        return (i - 1) // 2
+
+    def _left_child(self, i):
+        """返回索引 i 处节点的左子节点索引。"""
+        index = 2 * i + 1
+        return index if index < self.get_size() else -1
+
+    def _right_child(self, i):
+        """返回索引 i 处节点的右子节点索引。"""
+        index = 2 * i + 2
+        return index if index < self.get_size() else -1
+
+    def _swap(self, i, j):
+        """交换堆中索引 i 和 j 处的元素。"""
+        if 0 <= i < self.get_size() and 0 <= j < self.get_size():
+            self._heap[i], self._heap[j] = self._heap[j], self._heap[i]
+        # else: 处理错误或忽略？暂时忽略。
+
+    def _sift_up(self, i):
+        """
+        将索引 i 处的元素向上移动以恢复堆属性。
+        与父节点比较，如果当前节点更小则交换。
+        """
+        parent_idx = self._parent(i)
+        # 当节点不是根节点且小于其父节点时
+        while i > 0 and self._heap[i] < self._heap[parent_idx]:
+            self._swap(i, parent_idx)
+            i = parent_idx
+            parent_idx = self._parent(i)
+
+    def insert(self, item):
+        """
+        将一个项目插入优先队列并维护堆属性。
+        Args:
+            item: 要插入的项目（应是可比较的，例如 HuffmanNode）。
+        """
+        self._heap.append(item) # 添加到末尾
+        self._sift_up(self.get_size() - 1) # 将其“冒泡”到正确位置
+
+    def _sift_down(self, i):
+        """
+        将索引 i 处的元素向下移动以恢复堆属性。
+        与子节点比较，如果当前节点更大则与较小的子节点交换。
+        """
+        min_index = i
+        left = self._left_child(i)
+        right = self._right_child(i)
+
+        # 找出节点 i 及其子节点中最小元素的索引
+        if left != -1 and self._heap[left] < self._heap[min_index]:
+            min_index = left
+
+        if right != -1 and self._heap[right] < self._heap[min_index]:
+            min_index = right
+
+        # 如果最小元素不是当前节点 i，则交换并继续向下调整
+        if i != min_index:
+            self._swap(i, min_index)
+             # 从新位置递归地向下调整
+            self._sift_down(min_index)
+
+    def extract_min(self):
+        """
+        移除并返回具有最小优先级的项目（最小频率）。
+        Returns:
+            具有最小优先级的项目。
+        Raises:
+            IndexError: 如果优先队列为空。
+        """
+        if self.is_empty():
+            raise IndexError("从空优先队列中提取最小值")
+
+        min_item = self._heap[0] # 根节点是最小元素
+        last_item = self._heap.pop() # 移除最后一个元素
+
+        # 如果弹出后还有剩余项目
+        if not self.is_empty():
+            self._heap[0] = last_item # 将最后一个元素移到根位置
+            self._sift_down(0) # 将其“下沉”到正确位置
+
+        return min_item
+
+    def peek_min(self):
+        """ 返回具有最小优先级的项目但不移除它。 """
+        if self.is_empty():
+            raise IndexError("查看空优先队列的最小值")
+        return self._heap[0]
+
+# 示例用法（可选 - 用于在此文件内快速测试）
+if __name__ == '__main__':
+    # 创建一些节点
+    node_a = HuffmanNode(symbol='a', freq=5)
+    node_b = HuffmanNode(symbol='b', freq=9)
+    node_c = HuffmanNode(symbol='c', freq=2)
+    node_d = HuffmanNode(symbol='d', freq=6)
+
+    # 创建一个优先队列
+    pq = PriorityQueue()
+
+    # 插入节点
+    pq.insert(node_a)
+    pq.insert(node_b)
+    pq.insert(node_c)
+    pq.insert(node_d)
+
+    print(f"队列大小: {pq.get_size()}")
+    print("提取最小元素:")
+    while not pq.is_empty():
+        node = pq.extract_min()
+        print(f"提取出: {node}")
+
+    print(f"提取后队列大小: {pq.get_size()}")
+```
+
+**代码说明:**
+
+1. **`HuffmanNode` 类:**
+    - 存储 `symbol`（符号）、`freq`（频率）、`left`（左子节点）、`right`（右子节点）。
+    - `is_leaf()` 是一个辅助方法，用于检查是否为叶子节点。
+    - `__lt__(self, other)`: **非常关键**，它定义了节点之间的比较规则（基于频率），这是 `PriorityQueue` 正常工作的基础。
+    - `__eq__` 和 `__repr__` 主要用于提高代码的完整性和调试便利性。
+2. **`PriorityQueue` 类:**
+    - 内部使用列表 `_heap` 来存储堆元素。
+    - 提供了标准的优先队列接口：`insert`（插入）、`extract_min`（提取最小值）、`is_empty`（判空）、`get_size`（获取大小）。
+    - 包含了一系列私有辅助方法 (`_parent`, `_left_child`, `_right_child`, `_swap`, `_sift_up`, `_sift_down`)，这些方法基于二叉堆算法手动管理堆的结构。
+    - `insert` 方法添加元素到列表末尾，然后调用 `_sift_up`（上浮）操作来维持堆属性。
+    - `extract_min` 方法将根节点（最小值）与最后一个元素交换，移除最后一个元素，然后调用 `_sift_down`（下沉）操作来恢复堆属性。
+3. **示例用法 (`if __name__ == '__main__':`)**: 这个代码块允许你直接运行此文件（例如在 PyCharm 中右键点击 Run 'data_structures' 或在终端执行 `python core_logic/data_structures.py`），对你刚刚实现的类进行一些基本的独立测试，然后再将它们集成到主要的哈夫曼编码逻辑中。
+
+**下一步:**
+
+写完这个文件后，按照计划，紧接着的步骤应该是为 `data_structures.py` 中的这两个类**编写单元测试**。你需要创建并编写 `tests/test_data_structures.py` 文件，以确保你手动实现的数据结构功能完全正确，然后再基于它们构建后续的哈夫曼编码逻辑。
+
+
+---
+# step3
+
+好的！既然你已经完成了环境搭建和 `core_logic/data_structures.py` 的编写，接下来的关键一步是 **为 `data_structures.py` 中的类编写单元测试**。
+
+这非常重要，因为：
+
+1. **验证正确性**: 确保你手动实现的 `HuffmanNode` 和（尤其是）`PriorityQueue` 按预期工作，这是后续所有哈夫曼编码逻辑的基础。
+2. **方便调试**: 如果 `PriorityQueue` 有问题，现在发现比后续在复杂的压缩/解压缩流程中发现要容易得多。
+3. **回归测试**: 未来的代码修改如果意外破坏了数据结构的功能，这些测试会立刻告诉你。
+
+**操作步骤:**
+
+1. **创建测试文件**: 在 `tests/` 目录下，创建（或打开）名为 `test_data_structures.py` 的 Python 文件。
+2. **编写测试代码**: 将下面的代码内容粘贴到 `test_data_structures.py` 文件中。
+
+**代码内容 (`tests/test_data_structures.py`):**
+
+Python
+
+```
+# tests/test_data_structures.py
+
+import unittest
+# 确保 core_logic 在 Python 路径上，对于 PyCharm 通常自动处理
+# 如果在终端运行 unittest 发现模块找不到，可能需要设置 PYTHONPATH 或使用 python -m unittest discover
+from core_logic.data_structures import HuffmanNode, PriorityQueue
+
+class TestHuffmanNode(unittest.TestCase):
+    """测试 HuffmanNode 类"""
+
+    def test_node_creation(self):
+        """测试节点的基本属性创建"""
+        node = HuffmanNode(symbol='a', freq=10)
+        self.assertEqual(node.symbol, 'a')
+        self.assertEqual(node.freq, 10)
+        self.assertIsNone(node.left)
+        self.assertIsNone(node.right)
+        self.assertTrue(node.is_leaf())
+
+        internal_node = HuffmanNode(freq=15, left=node, right=HuffmanNode('b', 5))
+        self.assertIsNone(internal_node.symbol)
+        self.assertEqual(internal_node.freq, 15)
+        self.assertIsNotNone(internal_node.left)
+        self.assertIsNotNone(internal_node.right)
+        self.assertFalse(internal_node.is_leaf())
+
+    def test_node_comparison(self):
+        """测试节点基于频率的比较 (<)"""
+        node_low = HuffmanNode(symbol='c', freq=5)
+        node_high = HuffmanNode(symbol='d', freq=20)
+        node_equal = HuffmanNode(symbol='e', freq=5)
+
+        self.assertTrue(node_low < node_high)
+        self.assertLess(node_low, node_high) # 等同于 assertTrue(node_low < node_high)
+
+        self.assertFalse(node_high < node_low)
+        self.assertFalse(node_low < node_equal) # 频率相等，不满足 <
+
+    def test_node_equality(self):
+        """测试节点的相等性 (==)"""
+        node1 = HuffmanNode('a', 10)
+        node2 = HuffmanNode('a', 10)
+        node3 = HuffmanNode('b', 10)
+        node4 = HuffmanNode('a', 15)
+
+        self.assertEqual(node1, node2) # 符号和频率都相同
+        self.assertNotEqual(node1, node3) # 符号不同
+        self.assertNotEqual(node1, node4) # 频率不同
+
+        # 内部节点比较（我们的实现主要依赖频率比较，这里仅作示例）
+        internal1 = HuffmanNode(freq=10, left=node1)
+        internal2 = HuffmanNode(freq=10, left=node1) # 结构相同但对象不同
+        internal3 = HuffmanNode(freq=15)
+        # 注意：默认的 __eq__ 不会递归比较子节点，除非你特别实现
+        # 我们的 __eq__ 实现目前只比较 symbol 和 freq
+        self.assertEqual(internal1.freq, internal2.freq) # 频率相同
+        self.assertNotEqual(internal1.freq, internal3.freq) # 频率不同
+
+class TestPriorityQueue(unittest.TestCase):
+    """测试手动实现的 PriorityQueue 类"""
+
+    def setUp(self):
+        """在每个测试方法运行前设置"""
+        self.pq = PriorityQueue()
+        # 创建一些测试节点
+        self.node_c = HuffmanNode(symbol='c', freq=2)
+        self.node_a = HuffmanNode(symbol='a', freq=5)
+        self.node_d = HuffmanNode(symbol='d', freq=6)
+        self.node_b = HuffmanNode(symbol='b', freq=9)
+        self.nodes = [self.node_c, self.node_a, self.node_d, self.node_b] # 按频率排序：c, a, d, b
+
+    def test_initialization(self):
+        """测试优先队列初始化状态"""
+        self.assertTrue(self.pq.is_empty())
+        self.assertEqual(self.pq.get_size(), 0)
+
+    def test_insert_single(self):
+        """测试插入单个元素"""
+        self.pq.insert(self.node_a)
+        self.assertFalse(self.pq.is_empty())
+        self.assertEqual(self.pq.get_size(), 1)
+        # 可以选择性地检查内部 _heap 状态，但更推荐通过 extract_min 验证
+        # self.assertEqual(self.pq._heap[0], self.node_a)
+
+    def test_insert_multiple_and_size(self):
+        """测试插入多个元素和队列大小"""
+        self.pq.insert(self.node_a)
+        self.pq.insert(self.node_c) # 频率最低
+        self.pq.insert(self.node_b)
+        self.assertEqual(self.pq.get_size(), 3)
+        # 检查最小值是否是频率最低的 'c'
+        # 注意：peek_min 会暴露内部实现，最好通过 extract_min 验证
+        # 如果你实现了 peek_min: self.assertEqual(self.pq.peek_min(), self.node_c)
+
+    def test_extract_min_empty(self):
+        """测试从空队列提取最小值（应抛出异常）"""
+        with self.assertRaises(IndexError):
+            self.pq.extract_min()
+
+    def test_extract_min_single(self):
+        """测试插入一个元素后提取"""
+        self.pq.insert(self.node_a)
+        extracted = self.pq.extract_min()
+        self.assertEqual(extracted, self.node_a)
+        self.assertTrue(self.pq.is_empty())
+        self.assertEqual(self.pq.get_size(), 0)
+
+    def test_extract_min_order(self):
+        """测试插入多个元素后按频率顺序提取"""
+        # 按任意顺序插入
+        self.pq.insert(self.node_a) # freq 5
+        self.pq.insert(self.node_b) # freq 9
+        self.pq.insert(self.node_c) # freq 2
+        self.pq.insert(self.node_d) # freq 6
+
+        self.assertEqual(self.pq.get_size(), 4)
+
+        # 按频率升序提取
+        extracted_nodes = []
+        while not self.pq.is_empty():
+            extracted_nodes.append(self.pq.extract_min())
+
+        # 期望的顺序是 c, a, d, b (按频率 2, 5, 6, 9)
+        expected_order = [self.node_c, self.node_a, self.node_d, self.node_b]
+        self.assertEqual(extracted_nodes, expected_order)
+        self.assertTrue(self.pq.is_empty())
+
+    def test_mixed_operations(self):
+        """测试插入和提取混合操作"""
+        self.pq.insert(self.node_a) # 5
+        self.pq.insert(self.node_c) # 2
+        self.assertEqual(self.pq.get_size(), 2)
+
+        min1 = self.pq.extract_min() # 提取 c (2)
+        self.assertEqual(min1, self.node_c)
+        self.assertEqual(self.pq.get_size(), 1)
+
+        self.pq.insert(self.node_d) # 插入 d (6)
+        self.pq.insert(self.node_b) # 插入 b (9)
+        self.assertEqual(self.pq.get_size(), 3) # 现在有 a(5), d(6), b(9)
+
+        min2 = self.pq.extract_min() # 提取 a (5)
+        self.assertEqual(min2, self.node_a)
+        self.assertEqual(self.pq.get_size(), 2)
+
+        min3 = self.pq.extract_min() # 提取 d (6)
+        self.assertEqual(min3, self.node_d)
+        self.assertEqual(self.pq.get_size(), 1)
+
+        min4 = self.pq.extract_min() # 提取 b (9)
+        self.assertEqual(min4, self.node_b)
+        self.assertTrue(self.pq.is_empty())
+
+    # 可以添加更多测试用例，例如测试具有相同频率的节点
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+**如何运行测试:**
+
+你有几种方式可以运行这些测试：
+
+1. **在 PyCharm 中运行:**
+    
+    - 在 `test_data_structures.py` 文件编辑区域内右键单击。
+    - 选择 "Run 'Python tests in test_data_structures.py'"。
+    - PyCharm 会在底部的 "Run" 窗口中显示测试结果。你应该看到所有测试都显示为 "OK" 或绿色通过标记。如果有失败 (Failure) 或错误 (Error)，你需要根据提示回到 `data_structures.py` 或测试代码中进行修正。
+    - 你也可以在左侧项目视图中右键点击 `tests` 目录，选择 "Run 'Python tests in tests'" 来运行 `tests` 目录下的所有测试。
+2. **在 PyCharm 的终端中运行:**
+    
+    - 打开 PyCharm 底部的 **Terminal** 标签页 (确保 `(venv)` 在提示符前)。
+    - 运行命令：
+        
+        Bash
+        
+        ```
+        python -m unittest tests/test_data_structures.py
+        ```
+        
+    - 或者，运行 `tests` 目录下的所有测试：
+        
+        Bash
+        
+        ```
+        python -m unittest discover tests
+        ```
+        
+    - 终端会输出测试结果。
+
+**确保所有测试都通过！** 只有当你确信 `HuffmanNode` 和 `PriorityQueue` 工作正常后，才应该继续下一步：编写 `core_logic/huffman_coder.py` 中的核心压缩和解压缩逻辑。
+
+---
+
+# step4
+
+好的，看起来你运行了一个位于项目根目录的 `main.py` 文件，它成功执行并退出了。不过，根据我们之前规划的项目结构和开发流程，我们当前的核心工作应该在 `core_logic` 包内，并且 Web 应用的启动入口计划是 `run.py`。
+
+既然你已经成功编写并测试了 `core_logic/data_structures.py`，那么 **下一步** 就是利用这些数据结构来实现**核心的哈夫曼压缩和解压缩逻辑**。
+
+**操作步骤:**
+
+1. **创建/打开文件**: 在 `core_logic/` 目录下，创建（或打开）名为 `huffman_coder.py` 的 Python 文件。
+2. **编写代码**: 将下面的代码内容粘贴到 `huffman_coder.py` 文件中。
+
+**代码内容 (`core_logic/huffman_coder.py`):**
+
+Python
+
+```
+# core_logic/huffman_coder.py
+
+from collections import Counter
+import pickle  # 用于序列化频率表作为头部信息
+
+# 从同一目录下的 data_structures 模块导入我们自定义的类
+from .data_structures import HuffmanNode, PriorityQueue
+
+# 定义头部中频率表和填充位数之间的分隔符（选择不太可能出现在pickle数据中的字节序列）
+# 或者使用更结构化的方式，比如先写入频率表长度，再写入频率表，然后写入填充位数。
+# 这里为了简化，我们先用pickle，然后直接附加填充位数（1字节）。
+# 更健壮的方式是定义更明确的二进制格式。
+
+def _build_frequency_map(data: bytes) -> Counter:
+    """计算输入字节数据的频率。"""
+    if not data:
+        return Counter()
+    return Counter(data)
+
+def _build_huffman_tree(freq_map: Counter) -> HuffmanNode | None:
+    """使用自定义的优先队列构建哈夫曼树。"""
+    if not freq_map:
+        return None
+
+    pq = PriorityQueue()
+    for symbol, freq in freq_map.items():
+        pq.insert(HuffmanNode(symbol=symbol, freq=freq))
+
+    # 处理只有一个唯一符号的情况
+    if pq.get_size() == 1:
+        # 创建一个虚拟的父节点，以便形成树结构
+        # 否则无法生成编码（需要左右分支）
+        node = pq.extract_min()
+        internal_node = HuffmanNode(freq=node.freq, left=node) # 右子节点为空
+        pq.insert(internal_node)
+        # 或者直接返回这个单一节点，并在生成编码时特殊处理？
+        # 当前选择构建一个至少包含一个内部节点的树
+
+    # 当队列中元素多于一个时，持续合并节点
+    while pq.get_size() > 1:
+        node1 = pq.extract_min()
+        node2 = pq.extract_min()
+        merged_freq = node1.freq + node2.freq
+        # 频率低的作为左子节点（约定，非必需）
+        internal_node = HuffmanNode(freq=merged_freq, left=node1, right=node2)
+        pq.insert(internal_node)
+
+    # 最终队列里只剩下一个根节点
+    return pq.extract_min() if not pq.is_empty() else None
+
+
+def _generate_huffman_codes(root: HuffmanNode | None) -> dict[int, str]:
+    """通过遍历哈夫曼树生成每个符号的哈夫曼编码。"""
+    codes = {}
+    if root is None:
+        return codes
+
+    def _traverse(node: HuffmanNode, current_code: str):
+        if node is None:
+            return
+        # 到达叶子节点，存储其编码
+        if node.is_leaf():
+            # 处理只有一个节点的树（根即叶子）
+            if not current_code and root.is_leaf():
+                 # 如果树只有一个节点，给它分配一个默认编码，例如 '0'
+                 # 否则无法区分，虽然这种情况压缩意义不大
+                codes[node.symbol] = '0'
+            elif node.symbol is not None : # 确保叶节点有符号
+                codes[node.symbol] = current_code
+            return
+
+        # 递归遍历左子树（加 '0'）和右子树（加 '1'）
+        _traverse(node.left, current_code + '0')
+        _traverse(node.right, current_code + '1')
+
+    _traverse(root, "") # 从根节点开始，初始编码为空字符串
+    return codes
+
+def _encode_data(data: bytes, codes: dict[int, str]) -> str:
+    """使用哈夫曼编码表将原始数据编码为二进制字符串。"""
+    encoded_str = "".join(codes[byte] for byte in data)
+    return encoded_str
+
+def _pad_encoded_string(encoded_str: str) -> tuple[str, int]:
+    """对编码后的二进制字符串进行填充，使其长度为8的倍数。"""
+    # 计算需要填充的位数
+    padding_amount = 8 - (len(encoded_str) % 8)
+    if padding_amount == 8:
+        padding_amount = 0 # 正好是8的倍数，无需填充
+
+    # 添加填充位（通常用0）
+    padded_encoded_str = encoded_str + '0' * padding_amount
+
+    return padded_encoded_str, padding_amount
+
+def _string_to_bytes(padded_str: str) -> bytes:
+    """将填充后的二进制字符串转换为字节序列。"""
+    if len(padded_str) % 8 != 0:
+        raise ValueError("填充后的字符串长度必须是8的倍数")
+    byte_array = bytearray()
+    for i in range(0, len(padded_str), 8):
+        byte = padded_str[i:i+8]
+        byte_array.append(int(byte, 2))
+    return bytes(byte_array)
+
+def compress(data: bytes) -> bytes | None:
+    """
+    执行哈夫曼压缩。
+
+    Args:
+        data: 原始的字节数据。
+
+    Returns:
+        压缩后的字节数据，包含头部信息。如果输入为空，返回 None 或空字节串。
+    """
+    if not data:
+        return b'' # 空输入压缩后也是空
+
+    # 1. 计算频率
+    freq_map = _build_frequency_map(data)
+
+    # 2. 构建哈夫曼树
+    huffman_tree_root = _build_huffman_tree(freq_map)
+    if huffman_tree_root is None: # 如果无法建树（例如频率表为空，虽然前面已处理空data）
+        return b''
+
+    # 3. 生成哈夫曼编码
+    codes = _generate_huffman_codes(huffman_tree_root)
+    if not codes and len(freq_map) > 0:
+         # 特殊处理只有一个唯一字符的文件
+         if len(freq_map) == 1:
+             single_symbol = list(freq_map.keys())[0]
+             codes[single_symbol] = '0' # 必须分配一个编码
+         else:
+             # 如果有频率但无法生成编码，说明逻辑有误
+             raise RuntimeError("无法为非空频率表生成哈夫曼编码")
+
+
+    # 4. 编码原始数据
+    encoded_string = _encode_data(data, codes)
+
+    # 5. 填充编码字符串
+    padded_encoded_string, padding_amount = _pad_encoded_string(encoded_string)
+
+    # 6. 转换为字节
+    encoded_data_bytes = _string_to_bytes(padded_encoded_string)
+
+    # 7. 创建头部信息
+    # 使用 pickle 序列化频率表，并附加填充位数信息（1个字节）
+    header_data = pickle.dumps(freq_map)
+    padding_info_byte = bytes([padding_amount])
+
+    # 8. 组合头部和数据
+    compressed_data = header_data + padding_info_byte + encoded_data_bytes
+
+    return compressed_data
+
+def _decode_data(encoded_bytes: bytes, padding_amount: int, root: HuffmanNode) -> bytes:
+    """使用哈夫曼树解码字节数据。"""
+    # 将字节转换回二进制字符串
+    encoded_str = "".join(format(byte, '08b') for byte in encoded_bytes)
+
+    # 移除填充位
+    if padding_amount > 0:
+        encoded_str = encoded_str[:-padding_amount]
+
+    decoded_bytes = bytearray()
+    current_node = root
+
+    # 处理只有一个节点的树的特殊情况
+    if root.is_leaf():
+        # 如果只有一个节点，编码必然是 '0'（根据我们生成编码的逻辑）
+        # 解码结果是重复该符号 N 次，N 是编码 '0' 的数量
+        if root.symbol is not None:
+            # 编码字符串里有多少个 '0'，就重复多少次该符号
+            num_zeros = len(encoded_str)
+            decoded_bytes.extend([root.symbol] * num_zeros)
+        else:
+            # 树只有一个内部节点？这不应该发生
+            raise ValueError("解码错误：哈夫曼树只有一个内部节点")
+        return bytes(decoded_bytes)
+
+
+    # 正常遍历解码
+    for bit in encoded_str:
+        if current_node is None: # 安全检查
+             raise ValueError("解码错误：在树中导航时遇到 None 节点")
+
+        if bit == '0':
+            current_node = current_node.left
+        else: # bit == '1'
+            current_node = current_node.right
+
+        # 到达叶子节点
+        if current_node is not None and current_node.is_leaf():
+            if current_node.symbol is None:
+                 raise ValueError("解码错误：到达一个没有符号的叶子节点")
+            decoded_bytes.append(current_node.symbol)
+            current_node = root # Reset 到根节点，准备解码下一个符号
+        elif current_node is None: # 向一个不存在的方向移动了？
+             raise ValueError(f"解码错误：无效的编码位 '{bit}' 或树结构错误")
+
+
+    return bytes(decoded_bytes)
+
+
+def decompress(compressed_data: bytes) -> bytes | None:
+    """
+    执行哈夫曼解压缩。
+
+    Args:
+        compressed_data: 压缩后的字节数据（包含头部）。
+
+    Returns:
+        解压缩后的原始字节数据。如果输入无效或为空，返回 None 或空字节串。
+    """
+    if not compressed_data:
+        return b''
+
+    try:
+        # 1. 解析头部信息
+        # 查找 pickle 数据的结束位置可能比较复杂，取决于 pickle 协议
+        # 简单假设：pickle 数据之后紧跟 1 个字节的填充信息
+        # **警告**: 这种方式非常脆弱！如果 pickle 数据恰好包含特定字节序列会出错。
+        # 更可靠的方法是先存储 pickle 数据的长度。
+
+        # 尝试找到最后一个字节前的部分作为 pickle 数据
+        # 注意：这种分割方式极其不健壮，仅作示例！
+        # A slightly better (but still imperfect) approach without length prefix:
+        # Assume padding info is the *last* byte.
+        padding_info_byte = compressed_data[-1:]
+        padding_amount = padding_info_byte[0]
+
+        header_data = compressed_data[:-1] # 除了最后一个字节，都认为是头部 pickle 数据
+        freq_map_counter = pickle.loads(header_data) # 使用 Counter 保持类型一致
+
+        # 检查反序列化结果是否为 Counter
+        if not isinstance(freq_map_counter, Counter):
+             raise ValueError("头部数据格式错误，未能解析出频率表 (Counter)")
+        freq_map = dict(freq_map_counter) # 转回普通字典可能更通用
+
+
+        # 实际编码数据是头部和填充信息之后的部分...
+        # 但是我们之前是 header + padding_byte + encoded_data
+        # 所以 encoded_data_bytes 应该是：
+        encoded_data_bytes_start_index = len(header_data) + 1
+        encoded_data_bytes = compressed_data[encoded_data_bytes_start_index:]
+
+    except (pickle.UnpicklingError, IndexError, EOFError, ValueError) as e:
+        # print(f"Error parsing header: {e}") # 调试信息
+        raise ValueError("解压缩失败：无法解析文件头或文件格式无效") from e
+
+    # 2. 重建哈夫曼树
+    huffman_tree_root = _build_huffman_tree(freq_map_counter) # 使用 Counter 构建
+    if huffman_tree_root is None and freq_map:
+         raise ValueError("解压缩失败：无法根据频率表重建哈夫曼树")
+    elif huffman_tree_root is None and not freq_map: # 空文件情况
+         return b''
+
+    # 3. 解码数据
+    try:
+        decompressed_data = _decode_data(encoded_data_bytes, padding_amount, huffman_tree_root)
+    except ValueError as e:
+        # print(f"Error during decoding: {e}") # 调试信息
+        raise ValueError(f"解压缩失败：解码过程中发生错误 - {e}") from e
+
+
+    return decompressed_data
+
+# 可以在这里添加一些简单的测试代码块
+if __name__ == '__main__':
+    test_data = b"beep boop beer!"
+    print(f"原始数据: {test_data}")
+    print(f"原始长度: {len(test_data)} bytes")
+
+    compressed = compress(test_data)
+    if compressed is not None:
+        print(f"压缩后数据: {compressed}")
+        print(f"压缩后长度: {len(compressed)} bytes")
+
+        try:
+            decompressed = decompress(compressed)
+            print(f"解压后数据: {decompressed}")
+            print(f"解压后长度: {len(decompressed)} bytes")
+
+            # 验证
+            if test_data == decompressed:
+                print("成功: 解压缩后的数据与原始数据匹配！")
+            else:
+                print("失败: 解压缩后的数据与原始数据不匹配！")
+        except ValueError as e:
+            print(f"解压缩时出错: {e}")
+
+    else:
+        print("压缩失败！")
+
+    print("\n测试空数据:")
+    compressed_empty = compress(b"")
+    print(f"压缩空数据: {compressed_empty}")
+    decompressed_empty = decompress(compressed_empty)
+    print(f"解压空数据: {decompressed_empty}")
+    print(f"空数据验证成功: {b'' == decompressed_empty}")
+
+    print("\n测试单一字符数据:")
+    test_single = b"aaaaa"
+    compressed_single = compress(test_single)
+    print(f"压缩单一字符数据 ({test_single}): {compressed_single}")
+    if compressed_single:
+        decompressed_single = decompress(compressed_single)
+        print(f"解压单一字符数据: {decompressed_single}")
+        print(f"单一字符验证成功: {test_single == decompressed_single}")
+```
+
+**代码说明:**
+
+1. **导入**: 导入了 `collections.Counter` 来方便地统计频率，`pickle` 用于序列化频率表作为文件头（**注意：这是一个简单的实现，实际应用中可能需要更健壮的头部格式**），以及我们自己写的 `HuffmanNode` 和 `PriorityQueue`。
+2. **辅助函数**:
+    - `_build_frequency_map`: 计算字节频率。
+    - `_build_huffman_tree`: 使用 `PriorityQueue` 构建哈夫曼树。增加了对只有一个唯一符号情况的处理。
+    - `_generate_huffman_codes`: 遍历树生成编码字典。增加了对只有一个节点的树的处理。
+    - `_encode_data`: 将原始字节根据编码表转换成二进制字符串。
+    - `_pad_encoded_string`: 对二进制字符串进行末尾填充，使其长度是 8 的倍数，并记录填充了多少位。
+    - `_string_to_bytes`: 将填充后的二进制字符串转换成实际的 `bytes` 对象。
+    - `_decode_data`: 核心解码逻辑，根据哈夫曼树将编码后的字节流（处理填充后）转换回原始字节。增加了对单节点树的解码处理。
+3. **`compress(data: bytes)` 函数**:
+    - 按顺序调用辅助函数：计算频率 -> 建树 -> 生成编码 -> 编码数据 -> 填充 -> 转字节。
+    - **头部创建**: 使用 `pickle.dumps()` 序列化频率 `Counter`，然后附加 1 个字节来存储填充位数。**这是一个非常基础且脆弱的头部格式，仅作演示**。
+    - 将头部和编码后的数据字节组合起来返回。
+4. **`decompress(compressed_data: bytes)` 函数**:
+    - **头部解析**: **极其简化的实现**，假设最后一个字节是填充信息，之前的所有字节都是 `pickle` 序列化的频率 `Counter`。然后用 `pickle.loads()` 反序列化。**这个方法在实际中很容易出错，需要改进**。
+    - 调用 `_build_huffman_tree` 使用解析出的频率重建哈夫曼树。
+    - 调用 `_decode_data` 使用重建的树和填充信息来解码数据部分。
+    - 包含基本的错误处理（如 `pickle` 错误，`IndexError`）。
+5. **`if __name__ == '__main__':`**: 包含了一个简单的测试用例，可以直接运行此文件 (`python core_logic/huffman_coder.py`) 来测试基本的压缩和解压缩流程是否匹配。
+
+**关于 `main.py`**: 你之前运行的 `main.py` 文件可能是一个测试文件或者旧文件。对于我们这个项目，核心逻辑在 `core_logic` 包里，未来启动 Web 应用会使用 `run.py`。现在请专注于 `huffman_coder.py` 的实现。
+
+**下一步:**
+
+和之前一样，在你编写完 `huffman_coder.py` 之后，**强烈建议为它编写单元测试**！你需要创建并编写 `tests/test_huffman_coder.py` 文件。测试应该覆盖：
+
+- 空数据压缩/解压缩。
+- 单字节数据压缩/解压缩。
+- 只有一个唯一符号的数据压缩/解压缩。
+- 包含多种符号的文本数据压缩/解压缩。
+- 确保压缩和解压缩是可逆的（解压结果与原始输入完全一致）。
+- （可选）对一些已知输出的简单输入进行精确的压缩结果验证（包括头部和数据）。
+
+只有通过了测试，我们才能比较有信心地进行下一步，即开始构建 Web 应用部分。
+
+---
+
+# step5
+
+好的，你已经完成了核心的 `huffman_coder.py` 逻辑。按照我们的计划，**下一步是为 `huffman_coder.py` 编写单元测试**，以确保 `compress` 和 `decompress` 函数在各种情况下都能正确工作并且是可逆的。
+
+**操作步骤:**
+
+1. **创建/打开文件**: 在 `tests/` 目录下，创建（或打开）名为 `test_huffman_coder.py` 的 Python 文件。
+2. **编写代码**: 将下面的代码内容粘贴到 `test_huffman_coder.py` 文件中。
+
+**代码内容 (`tests/test_huffman_coder.py`):**
+
+Python
+
+```
+# tests/test_huffman_coder.py
+
+import unittest
+import random
+import pickle # 仅用于测试可能无效的 pickle 数据
+
+# 确保 core_logic 在 Python 路径上
+from core_logic.huffman_coder import compress, decompress
+
+class TestHuffmanCoder(unittest.TestCase):
+    """测试 huffman_coder.py 中的 compress 和 decompress 函数"""
+
+    def _assert_reversible(self, data: bytes, msg: str = ""):
+        """辅助方法：断言压缩后再解压等于原始数据"""
+        if not msg:
+            msg = f"数据压缩/解压可逆性失败: {data[:50]}{'...' if len(data)>50 else ''}"
+
+        compressed_data = compress(data)
+        self.assertIsNotNone(compressed_data, f"压缩不应返回 None 对于: {msg}")
+
+        try:
+            decompressed_data = decompress(compressed_data)
+            self.assertEqual(data, decompressed_data, msg)
+        except ValueError as e:
+            # 如果解压过程中抛出我们预期的 ValueError，也视为测试失败，除非是专门测试错误处理的用例
+            self.fail(f"为有效压缩数据解压时引发异常: {e} 对于: {msg}")
+        except Exception as e:
+            # 捕获其他意外错误
+             self.fail(f"为有效压缩数据解压时引发意外异常: {type(e).__name__}: {e} 对于: {msg}")
+
+
+    def test_empty_data(self):
+        """测试空字节串的压缩与解压缩"""
+        data = b""
+        # compress(b"") 应该返回 b""
+        compressed = compress(data)
+        self.assertEqual(compressed, b"", "压缩空数据应返回空字节串")
+        # decompress(b"") 应该返回 b""
+        decompressed = decompress(compressed)
+        self.assertEqual(decompressed, b"", "解压缩空数据应返回空字节串")
+        # 也可以用辅助方法
+        self._assert_reversible(data, "空数据测试")
+
+    def test_single_byte_data(self):
+        """测试只包含一个字节的数据"""
+        data = b"a"
+        self._assert_reversible(data, "单字节数据测试")
+
+    def test_single_unique_byte_data(self):
+        """测试只包含一种重复字节的数据"""
+        data = b"aaaaabbbbb" # 包含 'a' 和 'b'
+        self._assert_reversible(data, "仅含'a' 'b'的数据测试")
+
+        data_only_a = b"aaaaa"
+        self._assert_reversible(data_only_a, "仅含单一重复字节 'a' 的数据测试")
+
+    def test_simple_text_data(self):
+        """测试简单的文本数据"""
+        data = b"hello world"
+        self._assert_reversible(data, "简单文本'hello world'测试")
+
+        data_complex = b"beep boop beer! Go Bulldogs! Testing 123..."
+        self._assert_reversible(data_complex, "较复杂文本测试")
+
+    def test_data_with_all_bytes(self):
+        """测试包含所有可能字节值的数据"""
+        # 创建一个包含 0-255 所有字节的数据
+        data = bytes(range(256))
+        # 多重复几次增加频率差异
+        data = data * 3
+        # 打乱顺序
+        data_list = list(data)
+        random.shuffle(data_list)
+        data = bytes(data_list)
+        self._assert_reversible(data, "包含所有字节值的数据测试")
+
+    def test_longer_text_data(self):
+        """测试较长的文本数据"""
+        data = (b"This is a longer test sentence to see how the Huffman coding "
+                b"performs with more text data. It includes various characters, "
+                b"punctuation, spaces, and repeated words like test test test. "
+                b"The quick brown fox jumps over the lazy dog. 1234567890. "
+                b"!@#$%^&*()_+=-`~[]{}|\\:;\"'<>,.?/") * 5 # 重复几次使文件变长
+        self._assert_reversible(data, "较长文本数据测试")
+
+    def test_decompress_invalid_data(self):
+        """测试解压缩无效或损坏的数据（应引发 ValueError）"""
+        # 1. 随机字节 (不太可能形成有效的头部)
+        invalid_data_random = bytes([random.randint(0, 255) for _ in range(50)])
+        with self.assertRaises(ValueError, msg="解压缩随机字节应引发 ValueError"):
+            decompress(invalid_data_random)
+
+        # 2. 太短的数据 (无法包含有效的头部和填充信息)
+        invalid_data_short = b"abc"
+        with self.assertRaises(ValueError, msg="解压缩过短数据应引发 ValueError"):
+            decompress(invalid_data_short)
+
+        # 3. 有效压缩数据但被截断 (可能破坏 pickle 或数据部分)
+        valid_data = b"some valid text"
+        compressed_valid = compress(valid_data)
+        if compressed_valid and len(compressed_valid) > 5:
+             truncated_data = compressed_valid[:-5] # 截断尾部
+             with self.assertRaises(ValueError, msg="解压缩截断数据应引发 ValueError"):
+                 decompress(truncated_data)
+
+        # 4. 模拟损坏的 pickle 头部 (例如，非 pickle 数据 + 一个字节的填充信息)
+        bad_header_data = b"not pickle data" + b'\x03' # 假设填充 3 位
+        with self.assertRaises(ValueError, msg="解压缩损坏头部应引发 ValueError"):
+             decompress(bad_header_data)
+
+        # 5. 模拟 pickle 数据类型错误 (非 Counter)
+        not_a_counter = {"a": 1, "b": 2} # 是字典但不是 Counter
+        bad_pickle_type_header = pickle.dumps(not_a_counter) + b'\x01'
+        with self.assertRaises(ValueError, msg="解压缩头部类型错误应引发 ValueError"):
+            decompress(bad_pickle_type_header)
+
+
+    # 可选：更精确的压缩结果验证（比较脆弱）
+    # def test_specific_compression_output(self):
+    #     """测试特定输入的精确压缩输出"""
+    #     data = b"aaab"
+    #     # 手动计算预期结果 (非常依赖实现细节，如 pickle 协议版本)
+    #     # freq = {'a': 3, 'b': 1} -> Counter({97: 3, 98: 1})
+    #     # 假设 pickle 结果是 X, padding 是 Y, encoded data 是 Z
+    #     # expected_compressed = X + Y_byte + Z_bytes
+    #     # self.assertEqual(compress(data), expected_compressed)
+    #     pass # 通常不推荐，除非有非常稳定的格式和需求
+
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+**代码说明:**
+
+1. **导入**: 导入 `unittest` 和要测试的 `compress`, `decompress` 函数。
+2. **`TestHuffmanCoder` 类**: 继承自 `unittest.TestCase`。
+3. **`_assert_reversible` 辅助方法**: 这是一个自定义的断言方法，用于方便地测试压缩后再解压的结果是否与原始数据相同。它封装了压缩、解压和 `assertEqual` 调用，并提供了更清晰的失败信息。
+4. **测试方法 (`test_...`)**:
+    - `test_empty_data`: 测试空字节串。
+    - `test_single_byte_data`: 测试只有一个字节的数据。
+    - `test_single_unique_byte_data`: 测试数据中只有一种重复的字节（如 "aaaaa"），以及包含两种字节的情况。
+    - `test_simple_text_data`: 测试常见的短文本。
+    - `test_data_with_all_bytes`: 测试包含 0-255 所有字节值的复杂情况。
+    - `test_longer_text_data`: 测试更长的文本，模拟实际文件。
+    - `test_decompress_invalid_data`: **重要**: 测试解压缩函数处理无效输入的能力。它尝试解压缩随机字节、过短数据、截断数据和模拟的损坏头部，并断言这些操作会引发 `ValueError`（根据 `decompress` 函数中的 `try...except` 设计）。
+5. **运行方式**: 和 `test_data_structures.py` 一样，你可以通过 PyCharm 的右键菜单或终端命令 (`python -m unittest tests/test_huffman_coder.py` 或 `python -m unittest discover tests`) 来运行这些测试。
+
+**请运行这些测试。** 确保所有的测试都通过。如果在运行 `test_decompress_invalid_data` 时遇到 `AssertionError`而不是 `ValueError`，这可能意味着你的 `decompress` 函数在遇到无效数据时没有按预期抛出 `ValueError`，而是抛出了其他错误或没有抛出错误，这需要你回到 `huffman_coder.py` 中检查错误处理逻辑。
+
+**下一步 (当所有测试通过后):**
+
+一旦你确信核心的哈夫曼编码逻辑 (`data_structures.py` 和 `huffman_coder.py`) 都已正确实现并通过了测试，我们就可以开始进入项目的下一阶段了：**构建 Web 应用后端**。
+
+具体来说，下一步将是：
+
+1. 在 `web_app/__init__.py` 中初始化 Flask (或 FastAPI) 应用实例。
+2. 在 `run.py` 中添加启动 Web 服务器的代码。
+3. 在 `web_app/routes.py` 中定义第一个简单的路由（例如，返回 "Hello World" 或一个基础的 HTML 页面），以确保 Web 服务可以运行起来。
+---
+
+# step6
+好的，太棒了！核心的压缩/解压缩逻辑和它们的测试都已经完成，这为你打下了坚实的基础。
+
+现在我们进入 **第 4 阶段：后端 - 基础设置与路由 (Backend - Basic Setup & Routing)**。我们将使用你选择的 Flask 框架来搭建 Web 应用的骨架，并创建一个简单的页面来验证服务器是否能成功运行。
+
+**操作步骤和代码内容:**
+
+**1. 初始化 Flask 应用 (`web_app/__init__.py`)**
+
+- **操作**: 打开（如果已存在则修改，如果不存在则创建） `huffman_webapp/web_app/__init__.py` 文件。
+    
+- **目的**: 创建 Flask 应用的核心实例 `app`。我们还会设置 `instance_relative_config=True`，这是一种良好的实践，允许配置项（如果以后需要的话）放在项目外的 `instance` 文件夹中，但现在我们暂时用不到它。最后，导入路由模块（我们稍后会创建它）。
+    
+- **代码**:
+    
+    Python
+    
+    ```
+    # web_app/__init__.py
+    
+    from flask import Flask
+    
+    # 创建 Flask 应用实例
+    # instance_relative_config=True 允许从 instance/ 文件夹加载配置（如果存在）
+    app = Flask(__name__, instance_relative_config=True)
+    
+    # 在创建 app 实例之后导入路由，以避免循环导入
+    # routes 模块需要 app 实例来进行路由注册 (@app.route)
+    from web_app import routes
+    ```
+    
+
+**2. 创建应用运行脚本 (`run.py`)**
+
+- **操作**: 打开（或创建）项目根目录下的 `huffman_webapp/run.py` 文件。
+    
+- **目的**: 这个脚本是启动你的 Flask 开发服务器的入口点。
+    
+- **代码**:
+    
+    Python
+    
+    ```
+    # run.py
+    
+    from web_app import app # 从 web_app 包导入我们创建的 app 实例
+    
+    if __name__ == '__main__':
+        # 启动 Flask 开发服务器
+        # debug=True 会在代码更改时自动重载服务器，并提供交互式调试器（非常方便开发）
+        # host='0.0.0.0' 允许局域网内其他设备访问（可选）
+        # port=5000 是默认端口，可以修改
+        app.run(debug=True, host='0.0.0.0', port=5000)
+    ```
+    
+    _注意_: `host='0.0.0.0'` 意味着服务器会监听所有可用的网络接口。如果你只想在本机访问，可以去掉这个参数或使用 `host='127.0.0.1'`。`debug=True` **仅限开发环境使用**。
+    
+
+**3. 定义基本路由 (`web_app/routes.py`)**
+
+- **操作**: 在 `web_app/` 目录下创建名为 `routes.py` 的新 Python 文件。
+    
+- **目的**: 这个文件将定义 URL 路由（用户访问的网址）以及处理这些路由请求的 Python 函数（称为视图函数）。我们先创建一个最简单的根路由 `/`。
+    
+- **代码**:
+    
+    Python
+    
+    ```
+    # web_app/routes.py
+    
+    from flask import render_template # 导入用于渲染 HTML 模板的函数
+    from web_app import app          # 从 web_app 包导入 app 实例
+    
+    @app.route('/')          # 定义根 URL (/) 的路由
+    @app.route('/index')     # 也可以通过 /index 访问同一个页面 (可选)
+    def index():
+        """处理主页请求的视图函数"""
+        # 现在我们只渲染一个简单的 HTML 模板文件 (我们马上创建它)
+        # Flask 会在 web_app/templates/ 目录下查找这个文件
+        return render_template('index.html', title='首页') # 传递一个标题变量给模板
+    ```
+    
+
+**4. 创建基础 HTML 模板 (`web_app/templates/index.html`)**
+
+- **操作**: 在 `web_app/templates/` 目录下创建名为 `index.html` 的新 HTML 文件。
+    
+- **目的**: 这是上面 `routes.py` 中 `render_template` 函数要渲染的页面。现在只需要一个非常简单的占位内容。
+    
+- **代码**:
+    
+    HTML
+    
+    ```
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{ title }} - 哈夫曼压缩工具</title>
+    </head>
+    <body>
+        <h1>欢迎使用哈夫曼压缩/解压缩工具!</h1>
+        <p>Web 界面即将在此构建。</p>
+    </body>
+    </html>
+    ```
+    
+
+**如何运行和验证:**
+
+1. **打开终端**: 在 PyCharm 底部打开 **Terminal** 标签页 (确保 `(venv)` 在提示符前)。
+2. **运行脚本**: 输入以下命令并按 Enter：
+    
+    Bash
+    
+    ```
+    python run.py
+    ```
+    
+3. **查看输出**: 你应该在终端看到类似以下的输出，表示 Flask 开发服务器正在运行：
+    
+    ```
+     * Serving Flask app 'web_app'
+     * Debug mode: on
+     * Running on all addresses (0.0.0.0)
+     * Running on http://127.0.0.1:5000
+     * Running on http://[你的局域网IP]:5000
+    Press CTRL+C to quit
+     * Restarting with stat
+     * Debugger is active!
+     * Debugger PIN: XXX-XXX-XXX
+    ```
+    
+4. **在浏览器中打开**: 打开你的网页浏览器（如 Chrome, Safari, Firefox），访问终端输出中提供的任意一个地址，通常是 `http://127.0.0.1:5000` 或 `http://localhost:5000`。
+5. **验证**: 你应该能在浏览器中看到 `index.html` 页面的内容，显示 "欢迎使用哈夫曼压缩/解压缩工具!"。
+
+如果以上步骤都成功了，恭喜你！你的 Flask Web 应用骨架已经搭建起来并且可以运行了。
+
+**下一步:**
+
+现在我们已经有了一个可以运行的 Web 服务器，下一步就是 **实现真正的 API 功能** (开发计划中的第 5 步: 后端 - API 实现)。我们将修改 `web_app/routes.py`，添加处理文件上传（用于压缩和解压缩）的路由，并让这些路由调用我们之前写好的 `core_logic.huffman_coder` 中的 `compress` 和 `decompress` 函数。
+
+---
+
+# step 7
+好的，明白了。这个运行结果 `Address already in use` 和 `Port 5000 is in use by another program.` 非常明确地告诉你：**端口 5000 已经被你电脑上的另一个程序占用了**，所以 Flask 服务器无法启动在这个端口上。
+
+正如错误消息提示的，在 macOS 上，这有时是因为系统的“隔空播放接收器”（AirPlay Receiver）服务占用了 5000 或 7000 端口。
+
+**解决方法：**
+
+你有以下几种选择，**推荐优先尝试第一种**，因为它最简单且只影响本项目：
+
+**1. 更改 Flask 使用的端口：**
+
+- **操作**: 编辑项目根目录下的 `run.py` 文件。
+    
+- **修改**: 将 `app.run(...)` 函数中的 `port=5000` 改成另一个不常用的端口号，例如 `5001` 或 `8080` 或 `8000`。
+    
+- **修改后的 `run.py` 代码示例**:
+    
+    Python
+    
+    ```
+    # run.py
+    
+    from web_app import app
+    
+    if __name__ == '__main__':
+        # 将端口号从 5000 修改为 5001 (或其他可用端口)
+        app.run(debug=True, host='0.0.0.0', port=5001)
+    ```
+    
+- **然后**: 保存文件，回到 PyCharm 的终端，再次运行 `python run.py`。如果 5001 端口也恰好被占用，你可以再试试其他端口（如 5002, 8000 等）。
+    
+
+---
+
+# step8
+
+太好了！看到 `* Running on http://127.0.0.1:5001` 并且没有 "Address already in use" 的错误，**表明你的 Flask 开发服务器已经成功启动并在端口 5001 上运行了**。输出是完全正确的，警告信息是开发服务器的标准提示，Debugger PIN 用于浏览器内的调试器（如果遇到错误）。
+
+**你的运行结果是正确的！** 你现在有了一个可以响应请求的、最基础的 Web 应用骨架。
+
+**下一步：实现后端 API 逻辑 (第 5 步: Backend - API Implementation)**
+
+现在我们需要让这个 Web 应用变得有用起来。下一步是在 `web_app/routes.py` 中添加实际处理压缩和解压缩请求的 **API 端点(Endpoint)**。这个端点将接收来自用户界面（我们稍后创建）的文件或文本数据，调用我们之前编写的核心哈夫曼逻辑，然后将结果（或错误信息）返回给用户界面。
+
+**操作步骤和代码内容:**
+
+1. **修改 `web_app/routes.py`**: 打开这个文件，我们将添加一个新的路由来处理 `/process` 请求。这个路由将只接受 `POST` 方法，因为用户将通过表单提交数据。
+    
+2. **添加代码**: 在 `web_app/routes.py` 文件的末尾，添加以下代码：
+    
+    Python
+    
+    ```
+    # web_app/routes.py
+    
+    # （文件顶部的导入保持不变）
+    from flask import render_template, request, jsonify, current_app, url_for
+    from web_app import app
+    import os
+    import time
+    import uuid # 用于生成唯一文件名
+    from werkzeug.utils import secure_filename # 用于安全地处理用户上传的文件名
+    
+    # 导入核心压缩/解压缩函数
+    # 注意我们是从项目根目录的角度来指定路径
+    from core_logic.huffman_coder import compress, decompress
+    
+    # --- index 路由保持不变 ---
+    @app.route('/')
+    @app.route('/index')
+    def index():
+        """处理主页请求的视图函数"""
+        return render_template('index.html', title='首页')
+    # --- index 路由结束 ---
+    
+    
+    # --- 新增处理压缩/解压缩请求的路由 ---
+    @app.route('/process', methods=['POST'])
+    def process_file():
+        """处理文件压缩或解压缩请求"""
+        start_time = time.monotonic() # 记录开始时间，monotonic 更适合测量时间间隔
+    
+        # 检查必要目录是否存在，如果不存在则创建
+        # 更健壮的方式是在应用启动时检查或使用配置
+        upload_folder = os.path.join(os.path.dirname(__file__), '..', 'uploads') # 定位到项目根目录下的 uploads
+        download_folder = os.path.join(os.path.dirname(__file__), '..', 'downloads') # 定位到项目根目录下的 downloads
+        os.makedirs(upload_folder, exist_ok=True)
+        os.makedirs(download_folder, exist_ok=True)
+    
+        try:
+            # 1. 获取操作模式 (compress/decompress)
+            mode = request.form.get('mode')
+            if mode not in ['compress', 'decompress']:
+                return jsonify({'status': 'error', 'message': '无效的操作模式'}), 400
+    
+            input_data = None
+            original_filename = "input_data" # 默认文件名
+            original_size = 0
+    
+            # 2. 获取输入数据 (优先处理文件上传)
+            if 'file' in request.files:
+                file = request.files['file']
+                if file and file.filename != '':
+                    # 使用 secure_filename 防止恶意路径
+                    original_filename = secure_filename(file.filename)
+                    # 直接读取文件内容为 bytes
+                    input_data = file.read()
+                    original_size = len(input_data)
+                    # 注意：对于大文件，直接 read() 可能消耗大量内存，后续可优化为流式处理或保存到临时文件
+                # else: 文件对象存在但没有文件名或内容，视为无效，继续检查文本输入
+    
+            # 如果没有文件上传，检查是否有文本输入
+            if input_data is None and 'text_input' in request.form:
+                text = request.form.get('text_input', '')
+                if text:
+                    input_data = text.encode('utf-8') # 将文本编码为 bytes
+                    original_filename = "pasted_text.txt"
+                    original_size = len(input_data)
+    
+            # 如果既没有有效文件也没有有效文本
+            if input_data is None:
+                return jsonify({'status': 'error', 'message': '未提供文件或文本输入'}), 400
+    
+            # 3. 调用核心逻辑
+            output_data = None
+            error_message = None
+            final_size = 0
+    
+            if mode == 'compress':
+                try:
+                    output_data = compress(input_data)
+                    if output_data is None: # compress 可能返回 None (虽然我们实现的是返回 b'')
+                         output_data = b''
+                    final_size = len(output_data)
+                except Exception as e: # 捕获核心逻辑可能抛出的所有异常
+                    error_message = f"压缩过程中出错: {e}"
+            else: # mode == 'decompress'
+                try:
+                    output_data = decompress(input_data)
+                    if output_data is None:
+                        output_data = b''
+                    final_size = len(output_data)
+                except ValueError as e: # decompress 设计为主要抛出 ValueError
+                    error_message = f"解压缩过程中出错: {e}"
+                except Exception as e: # 捕获其他意外错误
+                    error_message = f"解压缩过程中意外出错: {e}"
+    
+            if error_message:
+                return jsonify({'status': 'error', 'message': error_message}), 400
+    
+            # 4. 处理输出结果
+            end_time = time.monotonic()
+            duration = round(end_time - start_time, 3) # 计算耗时，保留3位小数
+    
+            # 生成唯一文件名用于下载
+            # 使用 uuid 防止文件名冲突，并保留原始扩展名（或添加新扩展名）
+            base, ext = os.path.splitext(original_filename)
+            if mode == 'compress':
+                output_filename = f"{secure_filename(base)}_{uuid.uuid4().hex[:8]}.huff"
+            else: # decompress
+                 # 保留原始扩展名，或添加 '_decompressed'
+                 # 为简化，统一用 .bin，或者尝试从原始文件名猜测
+                 output_filename = f"{secure_filename(base)}_decompressed_{uuid.uuid4().hex[:8]}{ext if ext else '.bin'}"
+    
+            output_filepath = os.path.join(download_folder, output_filename)
+    
+            # 将处理结果写入临时下载文件
+            with open(output_filepath, 'wb') as f_out:
+                f_out.write(output_data)
+    
+            # 5. 准备 JSON 响应
+            metrics = {
+                'time': duration,
+                'original_size': original_size,
+                'final_size': final_size,
+                'ratio': None # 压缩率稍后计算
+            }
+            if mode == 'compress' and original_size > 0:
+                ratio = (1 - (final_size / original_size)) * 100
+                metrics['ratio'] = round(ratio, 2) # 保留两位小数
+            elif mode == 'compress' and original_size == 0:
+                 metrics['ratio'] = 0.0 # 避免除以零
+    
+            # 生成下载链接 (需要实现 download_file 路由)
+            # download_url = url_for('download_file', filename=output_filename, _external=True)
+            # 暂时先只返回文件名，下载路由下一步实现
+            response_data = {
+                'status': 'success',
+                'metrics': metrics,
+                'output_filename': output_filename # 客户端需要这个文件名来请求下载
+                # 'download_url': download_url # 下一步实现
+            }
+            return jsonify(response_data)
+    
+        except Exception as e:
+            # 捕获此路由中的任何其他意外错误
+            # 在生产环境中，应该更详细地记录错误日志
+            # print(f"Error in /process route: {e}") # 调试用
+            return jsonify({'status': 'error', 'message': f'服务器内部错误: {e}'}), 500
+    
+    
+    # --- (下一步将在这里添加 /download/<filename> 路由) ---
+    
+    ```
+    
+3. **确保目录存在**: 运行代码前，请确保你的项目根目录下确实有 `uploads` 和 `downloads` 这两个文件夹。如果之前没有创建，现在手动创建它们。
+    
+
+**代码说明:**
+
+- **导入**: 增加了 `request` (访问请求数据), `jsonify` (创建 JSON 响应), `current_app` (访问应用配置，虽然暂时没用), `url_for` (生成 URL), `os` (文件路径操作), `time` (计算耗时), `uuid` (生成唯一 ID), `secure_filename` (处理文件名)。同时导入了 `compress`, `decompress`。
+- **`/process` 路由**:
+    - 使用 `@app.route('/process', methods=['POST'])` 定义，只接受 POST 请求。
+    - 记录开始时间。
+    - **确保目录存在**: 检查并创建 `uploads` 和 `downloads` 目录。
+    - **获取模式**: 从表单数据 (`request.form`) 获取 `mode` (压缩或解压)。
+    - **获取输入**: 检查 `request.files` 中是否有 'file'，有则读取文件内容；否则检查 `request.form` 中是否有 'text_input'，有则读取文本并编码为 bytes。如果都没有，返回错误。记录原始文件名和大小。
+    - **调用核心逻辑**: 根据 `mode` 调用 `compress` 或 `decompress`，并用 `try...except` 捕获核心逻辑中可能抛出的 `ValueError` 或其他异常。
+    - **处理输出**:
+        - 计算结束时间和耗时。
+        - 生成一个唯一的输出文件名，避免冲突，并根据模式添加 `.huff` 或 `_decompressed` 等标识。
+        - 将 `output_data` (压缩/解压后的字节) 写入 `downloads` 文件夹下的临时文件。
+        - 计算指标（耗时、原始大小、最终大小、压缩率）。
+        - **构造 JSON 响应**: 返回一个包含 `status`、`metrics` 和 `output_filename` 的 JSON 对象。前端将需要 `output_filename` 来请求下载。
+    - **全局错误捕获**: 最外层的 `try...except` 捕获此路由中任何未预料的错误，并返回 500 服务器错误。
+
+**运行和测试 (重要提示):**
+
+- 你的 Flask 服务器应该还在运行 (或者你可以用 `python run.py` 重新启动它)。
+- **你现在还无法直接通过浏览器测试 `/process` 路由**，因为它需要一个 `POST` 请求，并且需要包含 `mode` 和文件/文本数据。
+- 这个步骤主要是编写后端的处理逻辑。下一步我们将实现文件下载路由，然后再编写前端 HTML 和 JavaScript 来发送 `POST` 请求到这个 `/process` 端点并处理返回的 JSON。
+
+**下一步:**
+
+接下来的步骤是实现文件下载路由，让用户能够根据 `/process` 响应中返回的文件名下载结果文件。
+
+
+---
+# step9
+好的，我们来完成文件下载的功能。
+
+上一步，我们在 `/process` 路由中处理了压缩/解压缩，并将结果文件保存到了 `downloads` 文件夹，同时在返回的 JSON 中包含了 `output_filename`。现在，我们需要创建一个新的路由，当前端（或用户直接访问）这个路由并提供文件名时，服务器能将对应的文件发送给浏览器，提示用户下载。
+
+**操作步骤和代码内容:**
+
+1. **修改 `web_app/routes.py`**: 继续编辑这个文件。
+2. **添加代码**: 在 `web_app/routes.py` 文件中，**在 `process_file` 函数之后**，添加文件下载路由的代码。
+
+**代码内容 (添加到 `web_app/routes.py`):**
+
+Python
+
+```
+# web_app/routes.py
+
+# --- 之前的导入保持不变 ---
+# from flask import render_template, request, jsonify, current_app, url_for # url_for 现在可能用不到，除非在模板里生成下载链接
+from flask import render_template, request, jsonify, send_from_directory # 确保导入 send_from_directory
+from web_app import app
+import os
+import time
+import uuid
+from werkzeug.utils import secure_filename
+from core_logic.huffman_coder import compress, decompress
+
+# --- index 路由 和 process_file 路由 保持不变 ---
+@app.route('/')
+@app.route('/index')
+def index():
+    # ... (代码同前) ...
+    return render_template('index.html', title='首页')
+
+@app.route('/process', methods=['POST'])
+def process_file():
+    # ... (代码同前) ...
+    # 确保此函数最后返回类似 jsonify({'status': 'success', ..., 'output_filename': output_filename}) 的内容
+    # 或者 jsonify({'status': 'error', ...})
+    # (完整代码见上一步)
+    # ...
+
+    # ------------------------------------------
+    # vvvvvv 在这里添加新的下载路由 vvvvvv
+    # ------------------------------------------
+
+# --- 新增文件下载路由 ---
+DOWNLOAD_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'downloads'))
+# 将下载目录定义为常量，或者从 app.config 获取（如果使用配置）
+
+@app.route('/download/<path:filename>')
+def download_file(filename):
+    """处理文件下载请求"""
+    # 使用 Flask 提供的 send_from_directory 函数发送文件
+    # 它会安全地处理路径，防止访问 downloads 目录之外的文件
+    # as_attachment=True 会让浏览器弹出下载对话框，而不是试图直接显示文件内容
+    print(f"请求下载文件: {filename} 从目录: {DOWNLOAD_DIRECTORY}") # 调试信息
+    try:
+        return send_from_directory(
+            DOWNLOAD_DIRECTORY,
+            filename,
+            as_attachment=True
+        )
+    except FileNotFoundError:
+        # 如果文件不存在，返回 404 错误
+        # import abort from flask at the top
+        # from flask import abort
+        # abort(404, description="请求的文件未找到")
+        # 或者返回一个 JSON 错误信息
+        return jsonify({'status': 'error', 'message': '请求的文件未找到'}), 404
+    except Exception as e:
+         # 处理其他可能的错误
+         print(f"下载文件时出错: {e}") # 记录错误日志
+         return jsonify({'status': 'error', 'message': '下载文件时发生服务器错误'}), 500
+
+# --- 文件下载路由结束 ---
+
+```
+
+**修改和说明:**
+
+1. **导入 `send_from_directory`**: 确保从 `flask` 导入了这个函数。我还添加了 `abort` 的导入注释，如果你想用它来返回标准的 404 页面。
+2. **`DOWNLOAD_DIRECTORY` 常量**: 为了清晰和避免重复计算，我们将 `downloads` 目录的绝对路径定义为一个常量（或者将来可以移到 `config.py` 中并通过 `current_app.config` 访问）。
+3. **`@app.route('/download/<path:filename>')`**:
+    - 定义了一个新的路由 `/download/`，后面跟着一个动态部分 `<path:filename>`。
+    - `path:` 转换器允许 `filename` 部分包含斜杠（尽管 `secure_filename` 应该已经处理了大部分情况，但这更灵活一点）。
+    - Flask 会将 URL 中匹配 `filename` 的部分作为参数传递给 `download_file` 函数。
+4. **`download_file(filename)` 函数**:
+    - 接收 URL 中的 `filename` 参数。
+    - **核心**: 调用 `send_from_directory(DOWNLOAD_DIRECTORY, filename, as_attachment=True)`。
+        - 第一个参数是文件所在的**目录**。
+        - 第二个参数是要发送的**文件名**。
+        - `as_attachment=True` **非常重要**，它设置了 HTTP 响应头 `Content-Disposition: attachment; filename=...`，告诉浏览器将响应内容作为附件下载，而不是尝试在浏览器中直接打开（例如，浏览器可能会尝试直接显示文本文件或图片）。
+    - **错误处理**: 添加了一个 `try...except FileNotFoundError` 块。如果 `send_from_directory` 找不到文件，它会引发 `NotFound` 异常 (是 `werkzeug.exceptions.NotFound`，通常会导致 404 响应)。我们明确捕获 `FileNotFoundError`（虽然 `send_from_directory` 内部可能处理了）并返回一个 JSON 错误或调用 `abort(404)`。同时捕获其他可能的异常。
+    - 添加了 `print` 语句用于调试，可以看到请求的文件名和目录。
+
+**运行和测试:**
+
+- 你的 Flask 服务器应该因为代码更改而自动重启了（如果 `debug=True` 并且它仍在运行）。如果没有，请用 `python run.py` 重启。
+- **直接测试**:
+    - 你需要先有一个文件存在于 `downloads` 目录中。你可以手动运行一次压缩（例如通过 Postman 或 curl 发送 POST 请求到 `/process`，或者临时修改代码运行一次 `compress`），记下返回的 `output_filename`（例如 `pasted_text_a1b2c3d4.huff`）。
+    - 然后在浏览器中访问：`http://127.0.0.1:5001/download/pasted_text_a1b2c3d4.huff` (替换成你实际的文件名)。
+    - 浏览器应该会提示你下载这个文件。
+- **主要用途**: 这个路由的主要目的是被前端 JavaScript 调用。当 `/process` 成功并返回 `output_filename` 后，JavaScript 会构造这个 `/download/...` URL 并创建一个链接让用户点击，或者直接触发下载。
+
+**下一步:**
+
+后端的核心 API（处理请求和提供下载）现在基本就绪了！接下来的 **主要工作是构建前端界面** (开发计划中的第 6 步: Frontend - UI & Interaction)。
+
+具体来说，下一步是：
+
+1. **编写 HTML (`web_app/templates/index.html`)**: 创建用户界面元素，包括模式选择（压缩/解压）、文件上传控件 (`<input type="file">`)、文本输入区 (`<textarea>`)、操作按钮 (`<button>`) 以及用于显示结果和错误信息的区域 (`<div>`)。
+2. **编写 CSS (`web_app/static/css/style.css`)**: 添加样式使界面美观易用（可以使用 Bootstrap 或 Tailwind 等框架简化工作）。
+3. **编写 JavaScript (`web_app/static/js/main.js`)**: 实现前端交互逻辑，包括：
+    - 处理用户选择模式。
+    - 获取用户上传的文件或输入的文本。
+    - **使用 `Workspace` API 发送异步 `POST` 请求到我们创建的 `/process` 路由**。
+    - 处理从 `/process` 返回的 JSON 响应。
+    - 在界面上显示状态（处理中...）、结果（指标、压缩率）或错误信息。
+    - 如果成功，根据返回的 `output_filename` 生成下载链接，让用户可以点击下载。
+---
+
+# step 10
+
+好的，非常抱歉上一步的说明让你感到困惑。看来你在复制代码时可能不小心合并了多个版本，导致 `routes.py`文件内容有些重复和混乱。
+
+没关系，我们来整理一下。**请将你当前的 `huffman_webapp/web_app/routes.py` 文件的全部内容替换为以下完整且正确的代码：**
+
+Python
+
+```
+# huffman_webapp/web_app/routes.py
+
+import os
+import time
+import uuid
+import pickle # 虽然在 huffman_coder 中使用，但 routes 本身可能不需要直接导入它
+from flask import (Flask, request, jsonify, render_template,
+                   send_from_directory, current_app, url_for, abort)
+from werkzeug.utils import secure_filename
+
+# 从 web_app 包导入在 __init__.py 中创建的 app 实例
+from web_app import app
+
+# 从 core_logic 包导入核心功能
+# 使用相对导入 '.' 表示从当前包 (web_app) 的父目录 (项目根目录)
+# 下的 core_logic 包导入，这更符合包结构
+# 或者使用绝对导入（如果项目根目录在 PYTHONPATH 中）
+# from core_logic.huffman_coder import compress, decompress
+# 假设 huffman_webapp 是项目根目录且在 PYTHONPATH 里
+try:
+    from core_logic.huffman_coder import compress, decompress
+except ImportError:
+    # 如果上面的导入失败（可能因为运行方式或 PYTHONPATH 问题），尝试另一种方式
+    # 这通常发生在直接运行 routes.py 时，而不是通过 run.py 运行 app
+    import sys
+    # 获取项目根目录（假设 routes.py 在 web_app 目录下）
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    from core_logic.huffman_coder import compress, decompress
+
+
+# --- 配置常量 ---
+# 定义下载目录的绝对路径
+# os.path.dirname(__file__) 获取当前文件(routes.py)所在的目录 (web_app)
+# os.path.join(..., '..', 'downloads') 回到上一级（项目根目录）再进入 downloads
+DOWNLOAD_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'downloads'))
+# (可选) 上传目录也可以在这里定义
+UPLOAD_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
+
+# 确保目录存在
+os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+os.makedirs(DOWNLOAD_DIRECTORY, exist_ok=True)
+
+
+# --- 主页路由 ---
+@app.route('/')
+@app.route('/index')
+def index():
+    """处理主页请求的视图函数"""
+    # 渲染位于 web_app/templates/ 目录下的 index.html 文件
+    # 并传递一个名为 title 的变量给模板
+    return render_template('index.html', title='首页')
+
+
+# --- 处理压缩/解压缩请求的路由 ---
+@app.route('/process', methods=['POST'])
+def process_file():
+    """处理文件压缩或解压缩请求"""
+    start_time = time.monotonic()
+
+    try:
+        # 1. 获取操作模式
+        mode = request.form.get('mode')
+        if mode not in ['compress', 'decompress']:
+            return jsonify({'status': 'error', 'message': '无效的操作模式'}), 400
+
+        input_data = None
+        original_filename = "input_data"
+        original_size = 0
+
+        # 2. 获取输入数据 (优先文件，其次文本)
+        if 'file' in request.files:
+            file = request.files['file']
+            # 检查文件对象存在且文件名不为空
+            if file and file.filename:
+                original_filename = secure_filename(file.filename)
+                input_data = file.read()
+                original_size = len(input_data)
+                # print(f"处理上传文件: {original_filename}, 大小: {original_size}") # 调试信息
+            # else: 即使有 'file' 键，但文件无效，忽略
+
+        # 如果没有从文件获取到数据，检查文本输入
+        if input_data is None and 'text_input' in request.form:
+            text = request.form.get('text_input', '').strip() # 去除首尾空白
+            if text:
+                input_data = text.encode('utf-8')
+                original_filename = "pasted_text.txt"
+                original_size = len(input_data)
+                # print(f"处理粘贴文本, 大小: {original_size}") # 调试信息
+
+        # 最终检查是否有有效输入
+        if input_data is None:
+            return jsonify({'status': 'error', 'message': '未提供文件或文本输入'}), 400
+
+        # 3. 调用核心逻辑
+        output_data = None
+        error_message = None
+        final_size = 0
+
+        # print(f"模式: {mode}, 调用核心逻辑...") # 调试信息
+        if mode == 'compress':
+            try:
+                output_data = compress(input_data)
+                # compress(b'') 返回 b''，所以无需检查 None
+                final_size = len(output_data)
+            except Exception as e:
+                # print(f"压缩错误: {e}") # 调试信息
+                error_message = f"压缩过程中出错: {e}"
+        else: # mode == 'decompress'
+            try:
+                output_data = decompress(input_data)
+                # decompress(b'') 返回 b''
+                final_size = len(output_data)
+            except ValueError as e: # 捕获预期的解压错误
+                # print(f"解压错误: {e}") # 调试信息
+                error_message = f"解压缩失败: {e}" # 更友好的提示
+            except Exception as e: # 捕获其他意外错误
+                # print(f"解压意外错误: {e}") # 调试信息
+                error_message = f"解压缩过程中发生意外错误: {e}"
+
+        # 如果核心逻辑出错
+        if error_message:
+             # print(f"返回错误: {error_message}") # 调试信息
+             return jsonify({'status': 'error', 'message': error_message}), 400 # 使用 400 Bad Request
+
+        # 4. 处理输出结果
+        end_time = time.monotonic()
+        duration = round(end_time - start_time, 3)
+
+        # 生成唯一且安全的文件名
+        base, ext = os.path.splitext(original_filename)
+        # 清理 base 部分，以防万一 secure_filename 没完全处理掉特殊字符（虽然可能性低）
+        safe_base = secure_filename(base) if base else 'output'
+        unique_id = uuid.uuid4().hex[:8] # 8位唯一ID
+
+        if mode == 'compress':
+            output_filename = f"{safe_base}_{unique_id}.huff"
+        else: # decompress
+            # 尝试保留原始扩展名，如果原始名是 .huff 则去除
+            safe_ext = secure_filename(ext) if ext != '.huff' else '.bin' # 默认解压后用 .bin
+            output_filename = f"{safe_base}_decompressed_{unique_id}{safe_ext}"
+
+        output_filepath = os.path.join(DOWNLOAD_DIRECTORY, output_filename)
+
+        # 写入文件
+        try:
+            with open(output_filepath, 'wb') as f_out:
+                f_out.write(output_data)
+            # print(f"结果已保存到: {output_filepath}") # 调试信息
+        except IOError as e:
+             # print(f"写入下载文件错误: {e}") # 调试信息
+             return jsonify({'status': 'error', 'message': f'无法保存结果文件: {e}'}), 500
+
+
+        # 5. 准备成功响应
+        metrics = {
+            'time': duration,
+            'original_size': original_size,
+            'final_size': final_size,
+            'ratio': None
+        }
+        if mode == 'compress' and original_size > 0:
+            ratio = (1 - (final_size / original_size)) * 100
+            metrics['ratio'] = round(ratio, 2)
+        elif mode == 'compress' and original_size == 0:
+            metrics['ratio'] = 0.0
+
+        response_data = {
+            'status': 'success',
+            'metrics': metrics,
+            'output_filename': output_filename # 前端需要这个来构建下载链接
+        }
+        # print(f"成功响应: {response_data}") # 调试信息
+        return jsonify(response_data)
+
+    except Exception as e:
+        # 捕获此路由处理过程中的任何未预料错误
+        # import traceback
+        # traceback.print_exc() # 打印详细错误堆栈到服务器日志
+        # print(f"Error in /process route: {e}") # 调试日志
+        return jsonify({'status': 'error', 'message': f'服务器内部错误，请稍后重试。'}), 500
+
+
+# --- 文件下载路由 ---
+@app.route('/download/<path:filename>')
+def download_file(filename):
+    """处理文件下载请求。"""
+    # 对传入的 filename 再进行一次安全处理是个好习惯，
+    # 虽然它可能已经在 /process 中处理过，且 send_from_directory 会检查路径。
+    safe_filename = secure_filename(filename)
+    if not safe_filename or safe_filename != filename:
+        # 如果 secure_filename 改变了名字或者返回空（说明原始名有问题）
+        abort(404, description="无效的文件名")
+
+    # print(f"请求下载文件: {safe_filename} 从目录: {DOWNLOAD_DIRECTORY}") # 调试信息
+    try:
+        # 使用 Flask 提供的 send_from_directory 函数安全地发送文件
+        # as_attachment=True 强制浏览器下载文件
+        return send_from_directory(
+            directory=DOWNLOAD_DIRECTORY,
+            path=safe_filename, # 使用安全处理后的文件名
+            as_attachment=True
+        )
+    except FileNotFoundError:
+        # print(f"文件未找到: {safe_filename}") # 调试信息
+        abort(404, description="请求的文件未找到")
+    except Exception as e:
+        # 捕获其他潜在错误 (例如权限问题)
+        # print(f"下载文件时出错 ({safe_filename}): {e}") # 调试日志
+        abort(500, description="下载文件时服务器发生错误")
+
+```
+
+**主要改动和说明:**
+
+1. **整理了 Imports**: 将所有需要的 Flask 组件和其他库放在文件顶部导入，并移除了重复的导入。特别注意了 `core_logic` 的导入方式，使其更符合包结构。
+2. **定义了 `DOWNLOAD_DIRECTORY`**: 将下载目录的路径定义为一个常量，并在 `process_file` 和 `download_file` 中使用它。同时添加了 `UPLOAD_DIRECTORY` 并确保两个目录都存在。
+3. **去除了重复的 `index` 路由**: 只保留了一个 `/` 和 `/index` 的路由定义及对应的 `index` 函数。
+4. **保留了 `process_file` 函数**: 基本逻辑与上一步提供的类似，做了一些微调（例如 `strip()` 文本输入，更清晰的调试信息注释）。
+5. **添加了 `download_file` 函数**:
+    - 它位于 `process_file` 函数之后。
+    - 使用了 `@app.route('/download/<path:filename>')` 来捕获 URL 中的文件名。
+    - 增加了一层 `secure_filename` 调用作为额外的安全措施。
+    - 调用 `send_from_directory` 来安全地发送文件，并设置 `as_attachment=True` 强制下载。
+    - 使用了 `abort(404)` 和 `abort(500)` 来处理文件未找到和其他服务器错误，这会返回标准的 HTTP 错误页面（需要导入 `abort`）。
+
+**请用上面的完整代码替换你现有的 `web_app/routes.py` 文件内容。**
+
+**运行和测试:**
+
+- 确保你的 Flask 服务器正在运行 (`python run.py`)。
+- 如前所述，直接在浏览器测试 `/download/<filename>` 需要先通过 `/process` 生成一个文件并知道其确切的 `output_filename`。
+- 主要目的是确保这两个路由现在都已定义在 `routes.py` 中，并且服务器能够正常运行。
+
+**下一步:**
+
+后端 API 路由现在已经比较完整了。接下来的 **关键一步是构建前端 HTML 界面**，让用户可以通过浏览器与这些后端功能进行交互。我们将编辑 `web_app/templates/index.html` 文件。
+
+
+好的，我们来分析一下你的运行结果：
+
+1. **PyCharm 终端**:
+    
+    - 服务器仍在正常运行，监听在 5001 端口。
+    - `GET / HTTP/1.1" 200 -`：这表示你可能在浏览器访问了 `http://127.0.0.1:5001/`，并且服务器成功返回了 `index.html` 页面。这很好！
+    - `POST /process HTTP/1.1" 200 -`：这表示服务器**成功接收并处理**了来自你的 `curl` 命令发送的 `POST` 请求到 `/process` 路由，并且处理过程没有导致服务器崩溃（返回了 200 OK 状态码）。**这说明 `/process`路由的基本逻辑通了！**
+2. **macOS 终端**:
+    
+    - `zsh: command not found: #`: 这个小错误是因为你不小心把 `curl` 命令前面那行 `#` 开头的注释也复制粘贴到终端里了。`#` 在终端里通常表示注释，但 zsh 试图将整行 `# 将 /path/to/your/testfile.txt...` 作为一个命令执行，自然就找不到了。忽略这个错误就好，它不影响后面的 `curl` 命令。
+    - **`curl` 命令的输出 (JSON 响应)**:
+        
+        JSON
+        
+        ```
+        {
+          "metrics": {
+            "final_size": 446,
+            "original_size": 389,
+            "ratio": -14.65, // 注意这个值
+            "time": 0.003
+          },
+          "output_filename": "testfile_6d8072da.huff",
+          "status": "success"
+        }
+        ```
+        
+        - `"status": "success"`：后端认为压缩操作成功完成了。
+        - `"output_filename": "testfile_6d8072da.huff"`：这是生成的压缩文件名，保存在了 `downloads` 目录下。**请记下这个文件名，下一步要用！**
+        - `"metrics"`：包含了耗时、原始大小、压缩后大小。
+        - **`"ratio": -14.65`**: 这个负数压缩率（以及 `final_size` > `original_size`）说明**压缩后的文件反而变大了**！
+            - **重要提示：** 这 **不一定** 是你的代码有 Bug！正如我们之前讨论的，哈夫曼编码对于某些文件（尤其是短文件、字节分布均匀的文件或已经压缩过的文件）效果不佳。在这个例子中，存储频率表（我们用的 `pickle` 序列化）和填充信息的**头部开销**，超过了通过编码节省的空间，导致总体积增大。你的 `testfile.txt` 可能就属于这种情况。看到负压缩率是哈夫曼编码的一个正常现象。
+
+**总结**: 你的后端 `/process` API 端点工作正常，能够接收请求、调用核心逻辑、生成结果文件并返回 JSON 信息。负压缩率是算法本身的特性，不是代码错误。
+
+**下一步：测试文件下载路由**
+
+现在你已经通过 `/process` 成功生成了一个名为 `testfile_6d8072da.huff` 的文件，接下来就要测试 `/download/<filename>` 路由是否能让你下载它。
+
+**操作步骤:**
+
+1. **打开你的 Web 浏览器** (Chrome, Safari, Firefox 等)。
+2. **在地址栏输入以下 URL** (请确保 Flask 服务器仍在运行):
+    
+    ```
+    http://127.0.0.1:5001/download/testfile_6d8072da.huff
+    ```
+    
+    _(确保将 `testfile_6d8072da.huff` 替换为你实际得到的 `output_filename`)_
+3. **按 Enter 访问该 URL**。
+
+**预期结果:**
+
+- 浏览器**不应该**显示任何网页内容（比如 "Not Found" 或其他错误页面）。
+- 浏览器应该**弹出文件下载对话框**，提示你保存名为 `testfile_6d8072da.huff` 的文件。
+
+**如果浏览器成功提示你下载文件，那么恭喜你！你的后端 API（包括处理和下载）就全部测试通过了。**
+
+**下一步 (在下载测试成功后):**
+
+后端的功能已经基本完备，是时候开始构建用户与之交互的前端界面了！我们将开始 **第 6 步：前端 - 界面与交互 (Frontend - UI & Interaction)**
+
+---
+
+# step11
+
+好的，现在我们已经准备好了坚实的后端基础，是时候构建用户与之交互的前端界面了！我们将完成 **第 6 步：前端 - 界面与交互 (Frontend - UI & Interaction)**。
+
+这包括三个部分：HTML 结构、CSS 样式（我们将主要使用 Bootstrap 框架来简化样式）和 JavaScript 交互逻辑。
+
+**操作步骤和代码内容:**
+
+**1. 编写 HTML 结构 (`web_app/templates/index.html`)**
+
+- **操作**: 打开 `huffman_webapp/web_app/templates/index.html` 文件，并将其**全部内容替换**为以下代码。
+    
+- **目的**: 创建包含模式选择、文件上传、文本输入、操作按钮以及结果显示区域的页面结构。我们使用 Bootstrap 5（通过 CDN 加载）来快速获得一个不错的外观。
+    
+- **代码**:
+    
+    HTML
+    
+    ```
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ title }} - 哈夫曼压缩工具</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <style>
+            /* 可以在这里添加少量页面特定样式 */
+            .input-group { margin-bottom: 1rem; }
+            #resultsArea { margin-top: 1.5rem; padding: 1rem; background-color: #f8f9fa; border-radius: 0.25rem; }
+            #errorArea { margin-top: 1rem; }
+            #statusArea { margin-top: 1rem; }
+            .form-check-label { margin-left: 0.5rem;}
+        </style>
+    </head>
+    <body>
+        <div class="container mt-4">
+            <header class="text-center mb-4">
+                <h1>哈夫曼压缩/解压缩</h1>
+                <p class="lead">上传文件或粘贴文本进行处理</p>
+            </header>
+    
+            <main>
+                <div class="mb-3 text-center">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="mode" id="modeCompress" value="compress" checked>
+                        <label class="form-check-label" for="modeCompress">
+                            压缩
+                        </label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="mode" id="modeDecompress" value="decompress">
+                        <label class="form-check-label" for="modeDecompress">
+                            解压缩
+                        </label>
+                    </div>
+                </div>
+    
+                <div class="card p-3 mb-3">
+                    <div class="input-group">
+                        <label for="fileInput" class="input-group-text">选择文件:</label>
+                        <input type="file" class="form-control" id="fileInput" aria-describedby="fileHelp">
+                    </div>
+                    <div id="fileHelp" class="form-text mb-3">
+                        优先使用文件输入。如果选择了文件，将忽略下方粘贴的文本。
+                    </div>
+    
+                    <div class="form-floating">
+                        <textarea class="form-control" placeholder="或者在此粘贴文本..." id="textInput" style="height: 100px"></textarea>
+                        <label for="textInput">或者在此粘贴文本...</label>
+                    </div>
+                     <div class="form-text text-muted mt-2">
+                        提示：哈夫曼编码对文本文件效果最佳，对已压缩文件（如 .zip, .jpg）或二进制文件可能效果不佳甚至增大体积。解压缩时请上传 `.huff` 或由本工具生成的压缩文件。
+                    </div>
+                </div>
+    
+                <div class="d-grid gap-2">
+                    <button id="processButton" class="btn btn-primary btn-lg">开始处理</button>
+                </div>
+    
+                <div id="statusArea" class="text-center mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">处理中...</span>
+                    </div>
+                    <p class="mt-2">处理中，请稍候...</p>
+                </div>
+    
+                <div id="errorArea" class="alert alert-danger mt-3" role="alert" style="display: none;">
+                    </div>
+    
+                <div id="resultsArea" class="mt-4 p-3 bg-light border rounded" style="display: none;">
+                    <h4>处理结果:</h4>
+                    <ul id="metricsList" class="list-unstyled">
+                        </ul>
+                    <div id="downloadLinkContainer">
+                        </div>
+                </div>
+            </main>
+    
+            <footer class="text-center text-muted mt-5 mb-3">
+                <p>&copy; 2024-{{ current_year }} 哈夫曼 Web App</p> </footer>
+        </div>
+    
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+        <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    </body>
+    </html>
+    
+    ```
+    
+
+**2. 编写 CSS 样式 (`web_app/static/css/style.css`)**
+
+- **操作**: 打开（或创建）`huffman_webapp/web_app/static/css/style.css` 文件。
+    
+- **目的**: 添加一些自定义样式（可选）。由于我们主要依赖 Bootstrap，这个文件可以保持为空，或者只添加少量微调样式。
+    
+- **代码**: （可以先保持为空，或添加如下示例）
+    
+    CSS
+    
+    ```
+    /* web_app/static/css/style.css */
+    
+    body {
+        padding-top: 1rem; /* 给顶部留点空间 */
+    }
+    
+    /* 可以添加更多自定义样式 */
+    #resultsArea li {
+        margin-bottom: 0.5rem;
+    }
+    
+    #downloadLinkContainer a {
+        margin-top: 1rem;
+        display: inline-block; /* 让下载链接像按钮一样 */
+    }
+    ```
+    
+
+**3. 编写 JavaScript 交互逻辑 (`web_app/static/js/main.js`)**
+
+- **操作**: 在 `huffman_webapp/web_app/static/js/` 目录下创建名为 `main.js` 的新 JavaScript 文件。
+    
+- **目的**: 实现前端的核心交互：获取用户输入，发送请求到后端 `/process` API，处理响应，并更新界面显示结果、错误或下载链接。
+    
+- **代码**:
+    
+    JavaScript
+    
+    ```
+    // web_app/static/js/main.js
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // 获取 DOM 元素
+        const modeCompressRadio = document.getElementById('modeCompress');
+        const modeDecompressRadio = document.getElementById('modeDecompress');
+        const fileInput = document.getElementById('fileInput');
+        const textInput = document.getElementById('textInput');
+        const processButton = document.getElementById('processButton');
+        const statusArea = document.getElementById('statusArea');
+        const errorArea = document.getElementById('errorArea');
+        const resultsArea = document.getElementById('resultsArea');
+        const metricsList = document.getElementById('metricsList');
+        const downloadLinkContainer = document.getElementById('downloadLinkContainer');
+    
+        // --- 事件监听 ---
+        processButton.addEventListener('click', handleProcessRequest);
+    
+        // (可选) 根据模式切换按钮文字
+        modeCompressRadio.addEventListener('change', updateButtonText);
+        modeDecompressRadio.addEventListener('change', updateButtonText);
+        updateButtonText(); // 初始化按钮文字
+    
+        // --- 函数定义 ---
+    
+        // 更新处理按钮的文本
+        function updateButtonText() {
+            if (modeCompressRadio.checked) {
+                processButton.textContent = '开始压缩';
+            } else {
+                processButton.textContent = '开始解压缩';
+            }
+        }
+    
+        // 处理文件大小格式化 (可选)
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    
+    
+        // 主要的处理函数
+        async function handleProcessRequest() {
+            // 1. 获取用户输入和模式
+            const selectedMode = document.querySelector('input[name="mode"]:checked')?.value;
+            const file = fileInput.files[0];
+            const text = textInput.value.trim();
+    
+            // 2. 基本验证
+            if (!selectedMode) {
+                showError('请选择操作模式（压缩或解压缩）！');
+                return;
+            }
+            if (!file && !text) {
+                showError('请选择一个文件或粘贴文本！');
+                return;
+            }
+    
+            // 3. 准备 FormData
+            const formData = new FormData();
+            formData.append('mode', selectedMode);
+    
+            // 优先使用文件输入
+            if (file) {
+                formData.append('file', file);
+                // (可选) 前端文件大小限制可以在这里加
+                // const maxSize = 10 * 1024 * 1024; // 例如 10MB
+                // if (file.size > maxSize) {
+                //     showError(`文件过大，请选择小于 ${formatBytes(maxSize)} 的文件。`);
+                //     return;
+                // }
+            } else if (text) {
+                formData.append('text_input', text);
+            }
+    
+            // 4. 更新 UI：显示加载状态，隐藏旧结果/错误
+            showLoading(true);
+            hideError();
+            hideResults();
+            processButton.disabled = true; // 禁用按钮防止重复提交
+    
+            // 5. 发送 Fetch 请求到后端 /process
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData // 发送 FormData
+                });
+    
+                // 解析 JSON 响应体
+                const data = await response.json();
+    
+                showLoading(false); // 隐藏加载指示
+                processButton.disabled = false; // 恢复按钮
+    
+                // 6. 处理后端响应
+                if (response.ok && data.status === 'success') {
+                    displayResults(data, selectedMode); // 显示成功结果
+                } else {
+                    // 显示后端返回的错误信息，或者一个通用错误
+                    showError(data.message || '处理失败，请检查输入或稍后重试。');
+                }
+    
+            } catch (error) {
+                // 处理网络错误或其他 fetch 异常
+                console.error('Fetch Error:', error);
+                showLoading(false);
+                processButton.disabled = false;
+                showError('请求失败，请检查网络连接或联系管理员。');
+            }
+        }
+    
+        // --- UI 更新函数 ---
+    
+        function showLoading(isLoading) {
+            statusArea.style.display = isLoading ? 'block' : 'none';
+        }
+    
+        function showError(message) {
+            errorArea.textContent = message;
+            errorArea.style.display = 'block';
+            hideResults(); // 出错时隐藏旧结果
+        }
+    
+        function hideError() {
+            errorArea.style.display = 'none';
+            errorArea.textContent = '';
+        }
+    
+        function displayResults(data, mode) {
+            metricsList.innerHTML = ''; // 清空旧指标
+            downloadLinkContainer.innerHTML = ''; // 清空旧下载链接
+    
+            const metrics = data.metrics;
+            if (metrics) {
+                metricsList.innerHTML += `<li>处理耗时: ${metrics.time} 秒</li>`;
+                metricsList.innerHTML += `<li>原始大小: <span class="math-inline">\{formatBytes\(metrics\.original\_size\)\} \(</span>{metrics.original_size} Bytes)</li>`;
+                metricsList.innerHTML += `<li>${mode === 'compress' ? '压缩后' : '解压后'}大小: <span class="math-inline">\{formatBytes\(metrics\.final\_size\)\} \(</span>{metrics.final_size} Bytes)</li>`;
+                if (mode === 'compress' && metrics.ratio !== null) {
+                    const ratioClass = metrics.ratio >= 0 ? 'text-success' : 'text-danger'; // 根据压缩率正负显示不同颜色
+                    metricsList.innerHTML += `<li>压缩率: <strong class="<span class="math-inline">\{ratioClass\}"\></span>{metrics.ratio}%</strong> ${metrics.ratio < 0 ? '(体积增大)' : ''}</li>`;
+                }
+            }
+    
+            // 创建下载链接
+            if (data.output_filename) {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/download/${encodeURIComponent(data.output_filename)}`; // 构造下载 URL
+                downloadLink.textContent = `下载 ${mode === 'compress' ? '压缩' : '解压'} 后的文件`;
+                downloadLink.className = 'btn btn-success mt-3'; // 使用 Bootstrap 按钮样式
+                // downloadLink.download = data.output_filename; // 可选: 建议浏览器使用的文件名
+    
+                downloadLinkContainer.appendChild(downloadLink);
+            }
+    
+            resultsArea.style.display = 'block'; // 显示结果区域
+            hideError(); // 成功时隐藏错误信息
+        }
+    
+        function hideResults() {
+            resultsArea.style.display = 'none';
+            metricsList.innerHTML = '';
+            downloadLinkContainer.innerHTML = '';
+        }
+    
+    });
+    
+    ```
+    
+
+**代码说明:**
+
+- **HTML**:
+    - 使用了 Bootstrap 5 的类（如 `container`, `mb-3`, `form-check`, `form-control`, `btn`, `alert`, `spinner-border`等）来布局和美化。
+    - 包含了模式选择 (`input[type=radio]`)、文件选择 (`input[type=file]`)、文本输入 (`textarea`)、处理按钮 (`button`) 以及用于显示状态、错误和结果的 `div` 元素，并为它们设置了 ID 以便 JavaScript 操作。
+    - 通过 `{{ url_for('static', filename='...') }}` 正确链接了 CSS 和 JS 文件。
+    - 在 `<body>` 底部加载了 Bootstrap JS Bundle 和 `main.js`（使用 `defer`）。
+- **CSS**: (可选) 可以添加少量自定义样式。
+- **JavaScript (`main.js`)**:
+    - **DOM Ready**: 使用 `DOMContentLoaded` 事件确保在操作 DOM 前页面已加载。
+    - **获取元素**: 获取所有需要交互的 HTML 元素的引用。
+    - **事件监听**: 为处理按钮添加点击事件监听器，调用 `handleProcessRequest` 函数。为模式单选按钮添加 `change` 事件监听器以更新按钮文本。
+    - **`handleProcessRequest` 函数**:
+        - 获取当前选择的模式、文件对象和文本内容。
+        - 进行基本的前端验证。
+        - 创建 `FormData` 对象，并将模式和文件/文本数据添加到其中。
+        - 更新 UI，显示加载指示，禁用按钮。
+        - **核心**: 使用 `Workspace` API 向 `/process` 发送 `POST` 请求，请求体为 `FormData`。
+        - 使用 `async/await` 处理异步操作。
+        - 解析后端返回的 JSON 响应。
+        - 根据响应的 `status` 调用 `displayResults` 或 `showError`。
+        - 处理网络错误 (`catch` 块)。
+        - 最后恢复按钮状态，隐藏加载指示。
+    - **UI 更新函数**:
+        - `showLoading`, `showError`, `hideError`, `displayResults`, `hideResults` 用于控制界面元素的显示/隐藏和内容更新。
+        - `formatBytes` 是一个辅助函数，用于将字节大小格式化为 KB, MB 等（可选）。
+        - `displayResults` 函数会动态地创建列表项来显示指标，并创建一个 `<a>` 标签作为下载链接。下载链接的 `href` 指向我们之前创建的 `/download/<filename>` 路由。
+
+**如何运行和测试:**
+
+1. **保存文件**: 确保你已经将上述代码正确地保存到了对应的文件中 (`index.html`, `style.css`, `main.js`)。
+2. **重启服务器 (如果需要)**: 如果你的 Flask 服务器 (`python run.py`) 因为之前的代码更改而停止了，或者你想确保加载最新代码，请在 PyCharm 终端按 `Ctrl+C` 停止它，然后重新运行 `python run.py`。如果它还在运行并且 `debug=True`，它应该会自动重载。
+3. **刷新浏览器**: 在你的浏览器中打开或刷新 `http://127.0.0.1:5001` (或你使用的端口)。
+4. **测试交互**:
+    - 你应该能看到带有 Bootstrap 样式的界面。
+    - 尝试选择 "压缩" 或 "解压缩" 模式，按钮文字应该会相应改变。
+    - 尝试选择一个本地的文本文件 (`.txt`) 进行压缩。
+    - 点击 "开始压缩" 按钮。
+    - 你应该能看到 "处理中..." 的加载指示。
+    - 片刻之后，加载指示消失，结果区域应该显示出来，包含耗时、大小、压缩率（可能是正也可能是负）和一个 "下载压缩后的文件" 的链接。
+    - 点击下载链接，浏览器应该提示你保存 `.huff` 文件。
+    - 尝试不选择文件，直接在文本区域粘贴一些文本，然后点击 "开始压缩"。结果应该类似。
+    - 尝试上传你刚刚压缩生成的 `.huff` 文件，选择 "解压缩" 模式，点击 "开始解压缩"。
+    - 结果区域应该显示指标（此时没有压缩率），并提供一个 "下载解压后的文件" 的链接。
+    - 点击下载链接，下载解压后的文件，并与你原始上传的文本文件内容进行比较，应该完全一致。
+    - 尝试不选择文件也不输入文本就点击按钮，应该会看到错误提示。
+    - 尝试上传一个非哈夫曼格式的文件进行解压缩，应该会看到后端返回的错误信息。
+
+现在，你应该拥有一个功能基本完整的哈夫曼压缩/解压缩 Web 应用了！

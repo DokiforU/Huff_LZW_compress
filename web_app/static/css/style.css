@@ -1,0 +1,15 @@
+/* web_app/static/css/style.css */
+
+body {
+    padding-top: 1rem; /* 给顶部留点空间 */
+}
+
+/* 可以添加更多自定义样式 */
+#resultsArea li {
+    margin-bottom: 0.5rem;
+}
+
+#downloadLinkContainer a {
+    margin-top: 1rem;
+    display: inline-block; /* 让下载链接像按钮一样 */
+}

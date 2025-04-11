@@ -1,0 +1,24 @@
+STATS 201 Experimental Class
+Using test and assignment together to predict exam mark
+Problem
+We wish to use both test and assignment scores to predict exam mark, for the purpose of being able to predict a student’s exam mark (to aid in making decisions about aegrotat passes for students who do not sit the exam).
+The variables of interest are:
+Exam: Exam mark out of 100.
+Test: Test mark out of 20.
+Assign: Assignment mark out of 20.
+Points to note
+In addition to fitting a preferred model and writing Method and Assumption Checks and an Executive Summary:
+Using you preferred model, do predictions for individual students with scores of 0, 10, and 20 for both their assignment and test.
+In your Methods and Assumption Checks, give the model equation using the estimated coefficients (instead of using  etc).
+We’ve previously fitted a linear model using test score, and a quadratic model in assignment score. The residuals vs fitted plot from using only test score showed slight curvature (see Chapter 2), so start with an initial model that includes test and assignment and also the quadratic terms of both.
+Read in the data
+Stats20x.df = read.table("STATS20x.txt", header = T)
+Fit the initial model and do checks
+#Write R code here
+Simplify the initial model by removing non-significant terms where appropriate.
+Model simplification to find preferred model
+#Write R code here
+Inference
+#Write R code here
+Method and Assumption Checks
+Executive Summary
