@@ -1,3 +1,5 @@
+#data_structures.py
+
 import sys # 用于 sys.maxsize，可以代表无穷大或使用 None 检查
 
 class HuffmanNode:

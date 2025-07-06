@@ -4,19 +4,17 @@ import os
 import struct
 import pickle
 from collections import Counter
+from typing import Union, Optional
 from .data_structures import HuffmanNode, PriorityQueue
 
 LENGTH_FORMAT = '>I'
 PADDING_FORMAT = '>B'
 
-# ... (_build_frequency_map, _build_huffman_tree, _generate_huffman_codes 不变) ...
-# ... (_encode_data, _pad_encoded_string, _string_to_bytes 不变) ...
-
 def _build_frequency_map(data: bytes) -> Counter:
     if not data: return Counter()
     return Counter(data)
 
-def _build_huffman_tree(freq_map: Counter) -> HuffmanNode | None:
+def _build_huffman_tree(freq_map: Counter) -> Optional[HuffmanNode]:
     if not freq_map: return None
     pq = PriorityQueue()
     for symbol, freq in freq_map.items():
@@ -33,20 +31,25 @@ def _build_huffman_tree(freq_map: Counter) -> HuffmanNode | None:
         pq.insert(internal_node)
     return pq.extract_min() if not pq.is_empty() else None
 
-def _generate_huffman_codes(root: HuffmanNode | None) -> dict[int, str]:
+def _generate_huffman_codes(root: Optional[HuffmanNode]) -> dict[int, str]:
     codes = {}
-    if root is None: return codes
-    def _traverse(node: HuffmanNode, current_code: str):
-        if node is None: return
+    if root is None:
+        return codes
+    def _traverse(node: Optional[HuffmanNode], current_code: str):
+        if node is None:
+            return
         if node.is_leaf():
-            if node.symbol is not None : codes[node.symbol] = current_code if current_code else '0'
+            if node.symbol is not None:
+                codes[node.symbol] = current_code if current_code else '0'
             return
         _traverse(node.left, current_code + '0')
         _traverse(node.right, current_code + '1')
     _traverse(root, "")
-    if len(codes) == 0 and root.is_leaf() and root.symbol is not None: codes[root.symbol] = '0'
+    if len(codes) == 0 and root.is_leaf() and root.symbol is not None:
+        codes[root.symbol] = '0'
     elif len(codes) == 0 and not root.is_leaf() and root.left and root.left.is_leaf() and root.right is None:
-        if root.left.symbol is not None: codes[root.left.symbol] = '0'
+        if root.left.symbol is not None:
+            codes[root.left.symbol] = '0'
     return codes
 
 def _encode_data(data: bytes, codes: dict[int, str]) -> str:
@@ -68,53 +71,58 @@ def _string_to_bytes(padded_str: str) -> bytes:
     return bytes(byte_array)
 
 
-def compress(data: bytes, original_filename: str = "unknown") -> bytes | None:
-    """执行哈夫曼压缩，并包含健壮的头部。"""
-    # 1. 获取原始扩展名
-    _, original_ext = os.path.splitext(original_filename)
-    original_ext_bytes = original_ext.encode('utf-8')
-    original_ext_len_bytes = struct.pack(LENGTH_FORMAT, len(original_ext_bytes))
+def compress(data: bytes, original_filename: str = "unknown") -> Optional[bytes]:
+    try:
+        # 1. 获取原始扩展名
+        _, original_ext = os.path.splitext(original_filename)
+        original_ext_bytes = original_ext.encode('utf-8')
+        original_ext_len_bytes = struct.pack(LENGTH_FORMAT, len(original_ext_bytes))
 
-    # 处理空数据：仍然需要头部信息
-    if not data:
-        freq_map = Counter()
-        pickled_freq_map = pickle.dumps(freq_map)
-        pickled_freq_map_len_bytes = struct.pack(LENGTH_FORMAT, len(pickled_freq_map))
-        padding_amount = 0
-        padding_info_byte = struct.pack(PADDING_FORMAT, padding_amount)
-        encoded_data_bytes = b''
-    else:
-        # 2. 计算频率 & 序列化
-        freq_map = _build_frequency_map(data)
-        pickled_freq_map = pickle.dumps(freq_map)
-        pickled_freq_map_len_bytes = struct.pack(LENGTH_FORMAT, len(pickled_freq_map))
+        # 处理空数据：仍然需要头部信息
+        if not data:
+            freq_map = Counter()
+            pickled_freq_map = pickle.dumps(freq_map)
+            pickled_freq_map_len_bytes = struct.pack(LENGTH_FORMAT, len(pickled_freq_map))
+            padding_amount = 0
+            padding_info_byte = struct.pack(PADDING_FORMAT, padding_amount)
+            encoded_data_bytes = b''
+        else:
+            # 2. 计算频率 & 序列化
+            freq_map = _build_frequency_map(data)
+            pickled_freq_map = pickle.dumps(freq_map)
+            pickled_freq_map_len_bytes = struct.pack(LENGTH_FORMAT, len(pickled_freq_map))
 
-        # 3. 构建树 & 生成编码
-        huffman_tree_root = _build_huffman_tree(freq_map)
-        if huffman_tree_root is None: return b'' # Logic error safeguard
-        codes = _generate_huffman_codes(huffman_tree_root)
-        if not codes and len(freq_map) > 0:
-            if len(freq_map) == 1:
-                 single_symbol = list(freq_map.keys())[0]
-                 codes[single_symbol] = '0'
-            else: raise RuntimeError("无法为非空频率表生成哈夫曼编码")
+            # 3. 构建树 & 生成编码
+            huffman_tree_root = _build_huffman_tree(freq_map)
+            if huffman_tree_root is None: return b'' # Logic error safeguard
+            codes = _generate_huffman_codes(huffman_tree_root)
+            if not codes and len(freq_map) > 0:
+                if len(freq_map) == 1:
+                     single_symbol = list(freq_map.keys())[0]
+                     codes[single_symbol] = '0'
+                else: raise RuntimeError("无法为非空频率表生成哈夫曼编码")
 
-        # 4. 编码 & 填充 & 转字节
-        encoded_string = _encode_data(data, codes)
-        padded_encoded_string, padding_amount = _pad_encoded_string(encoded_string)
-        encoded_data_bytes = _string_to_bytes(padded_encoded_string)
-        padding_info_byte = struct.pack(PADDING_FORMAT, padding_amount)
+            # 4. 编码 & 填充 & 转字节
+            encoded_string = _encode_data(data, codes)
+            padded_encoded_string, padding_amount = _pad_encoded_string(encoded_string)
+            encoded_data_bytes = _string_to_bytes(padded_encoded_string)
+            padding_info_byte = struct.pack(PADDING_FORMAT, padding_amount)
 
-    # 5. 组合新的头部和数据
-    compressed_data = (
-        original_ext_len_bytes +
-        original_ext_bytes +
-        pickled_freq_map_len_bytes +
-        pickled_freq_map +
-        padding_info_byte +
-        encoded_data_bytes
-    )
-    return compressed_data
+        # 5. 组合新的头部和数据
+        compressed_data = (
+            original_ext_len_bytes +
+            original_ext_bytes +
+            pickled_freq_map_len_bytes +
+            pickled_freq_map +
+            padding_info_byte +
+            encoded_data_bytes
+        )
+        return compressed_data
+    except Exception as e:
+        import traceback
+        print(f"[FATAL] huffman_compress 未捕获异常: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        raise
 
 def _parse_header(data: bytes) -> tuple[str, Counter, int, int]: # Removed | None, let it raise error
     """解析新的健壮的文件头"""
@@ -161,9 +169,8 @@ def _parse_header(data: bytes) -> tuple[str, Counter, int, int]: # Removed | Non
         raise ValueError(f"解析文件头失败: {e}") from e
 
 
-def _decode_data(encoded_bytes: bytes, padding_amount: int, root: HuffmanNode | None) -> bytes: # Added | None for root
+def _decode_data(encoded_bytes: bytes, padding_amount: int, root: Optional[HuffmanNode]) -> bytes: # Added | None for root
     """使用哈夫曼树解码字节数据。"""
-    # ... (函数体与上一步相同，包括末尾的 current_node != root 检查) ...
     encoded_str = "".join(format(byte, '08b') for byte in encoded_bytes)
     if 0 <= padding_amount < 8:
         if padding_amount > 0:
@@ -171,53 +178,56 @@ def _decode_data(encoded_bytes: bytes, padding_amount: int, root: HuffmanNode | 
     else:
         raise ValueError(f"无效的填充位数: {padding_amount}")
 
-    if not encoded_str and root is None: return b'' # Empty data and empty tree
-    if root is None and encoded_str : raise ValueError("解码错误：哈夫曼树为空，但编码数据存在")
-    if root is None: return b'' # Empty tree implies empty data originally
+    if not encoded_str and root is None:
+        return b''
+    if root is None and encoded_str:
+        raise ValueError("解码错误：哈夫曼树为空，但编码数据存在")
+    if root is None:
+        return b''
 
     decoded_bytes = bytearray()
-    if not encoded_str: # If padding removed all bits, original was likely empty
-        if not _build_frequency_map(b''): # Check if the freq map was indeed empty
+    if not encoded_str:
+        if not _build_frequency_map(b''):
             return b''
-        else: # Non-empty tree but no encoded bits after padding? Error.
-             raise ValueError("解码错误：编码数据在移除填充后为空，但频率表非空")
+        else:
+            raise ValueError("解码错误：编码数据在移除填充后为空，但频率表非空")
 
-    current_node = root
-    # Handle single node tree cases first
     is_single_valid_leaf = root.is_leaf() and root.symbol is not None
-    is_special_single_node = not root.is_leaf() and root.left and root.left.is_leaf() and root.right is None and root.left.symbol is not None
+    is_special_single_node = (
+        not root.is_leaf() and root.left and root.left.is_leaf() and root.right is None and root.left.symbol is not None
+    )
 
     if is_single_valid_leaf or is_special_single_node:
-        leaf_symbol = root.symbol if is_single_valid_leaf else root.left.symbol
-        # Expect encoded string to be all '0's
+        leaf_symbol = root.symbol if is_single_valid_leaf else (root.left.symbol if root.left else None)
+        if leaf_symbol is None:
+            raise ValueError("解码错误：叶子节点符号为None")
         if all(bit == '0' for bit in encoded_str):
-             # As noted before, restoring exact length is hard without storing it.
-             # We assume the number of '0' bits corresponds to original length for this specific case.
-             num_symbols = len(encoded_str)
-             if num_symbols > 0:
-                decoded_bytes.extend([leaf_symbol] * num_symbols) # Replicate symbol
-        elif encoded_str: # Contains non-'0' bits
+            num_symbols = len(encoded_str)
+            if num_symbols > 0:
+                decoded_bytes.extend([leaf_symbol] * num_symbols)
+        elif encoded_str:
             raise ValueError("解码错误：单符号树的编码包含无效位")
-        # If encoded_str is empty here, decoded_bytes remains empty, which is correct for originally empty file
         return bytes(decoded_bytes)
 
-    # Normal decoding loop
+    current_node = root
     for bit in encoded_str:
-        if current_node is None: raise ValueError("解码错误：无效的树导航路径")
-        if bit == '0': current_node = current_node.left
-        elif bit == '1': current_node = current_node.right
-        else: raise ValueError(f"解码错误：编码数据中包含无效位 '{bit}'")
-
-        if current_node is None: raise ValueError("解码错误：无效的编码序列导致移动到 None")
-
+        if current_node is None:
+            raise ValueError("解码错误：无效的树导航路径")
+        if bit == '0':
+            current_node = current_node.left
+        elif bit == '1':
+            current_node = current_node.right
+        else:
+            raise ValueError(f"解码错误：编码数据中包含无效位 '{bit}'")
+        if current_node is None:
+            raise ValueError("解码错误：无效的编码序列导致移动到 None")
         if current_node.is_leaf():
-            if current_node.symbol is None: raise ValueError("解码错误：到达一个没有符号的叶子节点")
+            if current_node.symbol is None:
+                raise ValueError("解码错误：到达一个没有符号的叶子节点")
             decoded_bytes.append(current_node.symbol)
             current_node = root
-
     if current_node != root:
         raise ValueError("解码错误：编码数据在非符号边界处意外结束")
-
     return bytes(decoded_bytes)
 
 
@@ -294,7 +304,10 @@ if __name__ == '__main__':
     print(f"Compressing empty data with filename: {empty_filename}")
     compressed_empty = compress(b"", empty_filename) # 调用本文件的 compress
     print(f"压缩后的空数据 (头部): {compressed_empty}")
-    print(f"压缩后长度: {len(compressed_empty)}")
+    if compressed_empty is not None:
+        print(f"压缩后长度: {len(compressed_empty)}")
+    else:
+        print("压缩后长度: None")
 
     if compressed_empty:
         try:

@@ -2,10 +2,16 @@
 
 import unittest
 import os
+import sys
 import random
 import pickle # 仅用于测试可能无效的 pickle 数据
+from typing import Optional
 
-# 确保 core_logic 在 Python 路径上
+# 添加项目根目录到Python路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from core_logic.huffman_coder import compress, decompress
 
 class TestHuffmanCoder(unittest.TestCase):
@@ -21,18 +27,18 @@ class TestHuffmanCoder(unittest.TestCase):
         # 压缩时需要传入文件名
         compressed_data = compress(data, filename)
         self.assertIsNotNone(compressed_data, f"Huffman压缩不应返回 None 对于: {msg}")
-        # 空数据压缩后可能只有头部，需要更灵活的长度检查
-        # self.assertGreater(len(compressed_data), 4, f"Huffman压缩数据过短 对于: {msg}")
+        # 确保压缩数据是bytes类型
+        self.assertIsInstance(compressed_data, bytes, f"压缩数据必须是bytes类型 对于: {msg}")
 
         # 解压缩
         try:
-            # !!! 修改点：接收 decompress 返回的元组 (data, ext) !!!
-            decompressed_data, original_ext = decompress(compressed_data)
+            # 由于我们已经确保了compressed_data是bytes类型，这里不会有类型错误
+            decompressed_data, original_ext = decompress(compressed_data)  # type: ignore
             _, expected_ext = os.path.splitext(filename)  # 从传入的文件名获取预期扩展名
 
-            # !!! 修改点：只比较数据部分 !!!
+            # 比较数据部分
             self.assertEqual(data, decompressed_data, msg)
-            # !!! 新增检查：比较扩展名 !!!
+            # 比较扩展名
             self.assertEqual(expected_ext, original_ext, f"Huffman扩展名恢复失败 ({filename})")
 
         except ValueError as e:

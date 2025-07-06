@@ -1,4 +1,13 @@
+#tests/test_data_structures.py
 import unittest
+import os
+import sys
+
+# 添加项目根目录到Python路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 # 确保 core_logic 在 Python 路径上，对于 PyCharm 通常自动处理
 # 如果在终端运行 unittest 发现模块找不到，可能需要设置 PYTHONPATH 或使用 python -m unittest discover
 from core_logic.data_structures import HuffmanNode, PriorityQueue

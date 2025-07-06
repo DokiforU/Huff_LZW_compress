@@ -2,6 +2,7 @@
 
 import struct
 import os
+from .custom_dict import CustomDict
 
 # --- 常量定义 ---
 # LZW 通常使用 12 位编码比较常见且有效，最大编码值为 4095
@@ -14,11 +15,7 @@ INITIAL_DICT_SIZE = 256
 LENGTH_FORMAT = '>I'
 # 用于打包/解包编码的格式 (选择 16 位 '>H' 更简单，但会浪费空间如果用 12 位编码)
 # 如果使用 12 位，打包/解包会复杂很多，需要位操作。
-# 为了简化，我们暂时牺牲一点效率，使用 16 位来存储编码。
-# 注意：这意味着 MAX_CODES 实际上可以是 65536，但我们仍按 CODE_WIDTH=12 来限制字典增长
-# 或者，我们可以坚持使用 CODE_WIDTH=12，并实现复杂的位打包。
-# --> 折衷方案：内部逻辑按 CODE_WIDTH=12 (MAX_CODES=4096) 限制字典增长，
-# --> 但输出时仍按 16 位打包，简化 I/O 操作。
+# 为了简化，使用 16 位来存储编码。
 PACK_FORMAT = '>H' # 使用 16 位 (unsigned short) 打包
 
 
@@ -38,9 +35,10 @@ def lzw_compress(data: bytes, original_filename: str = "unknown") -> bytes:
         [L_ext bytes: original_ext_bytes (encoded in utf-8)]
         [N bytes: Packed Code Sequence (16 bits/code)]
     """
-    # 1. 初始化字典 (使用 Python 内建 dict 作为核心数据结构)
-    # 这是 LZW 算法的核心部分，我们将手动实现其使用逻辑
-    encoding_dict = {bytes([i]): i for i in range(INITIAL_DICT_SIZE)}
+    # 1. 初始化字典
+    encoding_dict = CustomDict(INITIAL_DICT_SIZE)
+    for i in range(INITIAL_DICT_SIZE):
+        encoding_dict[bytes([i])] = i
     next_code = INITIAL_DICT_SIZE
 
     # 2. 准备头部信息 - 原始扩展名
@@ -115,8 +113,10 @@ def lzw_decompress(compressed_data: bytes) -> tuple[bytes, str]:
         if len(packed_codes_data) % code_size != 0:
              raise ValueError("编码数据长度不是预期字节数的整数倍")
 
-        # 2. 初始化字典 (使用 Python 内建 dict)
-        decoding_dict = {i: bytes([i]) for i in range(INITIAL_DICT_SIZE)}
+        # 2. 初始化字典
+        decoding_dict = CustomDict(INITIAL_DICT_SIZE)
+        for i in range(INITIAL_DICT_SIZE):
+            decoding_dict[i] = bytes([i])
         next_code = INITIAL_DICT_SIZE
 
         # 3. 解压缩主循环
@@ -158,7 +158,6 @@ def lzw_decompress(compressed_data: bytes) -> tuple[bytes, str]:
 
             # 更新前一个序列
             previous_sequence = current_sequence
-            # previous_code = current_code # 实际上 KwKwK 判断用了 next_code，不需要 previous_code
 
         # 4. 合并结果
         decompressed_data = b"".join(output_sequences)

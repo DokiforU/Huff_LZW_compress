@@ -4,100 +4,479 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - 文件压缩工具</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .input-group { margin-bottom: 1rem; }
-        #resultsArea { margin-top: 1.5rem; padding: 1rem; background-color: #f8f9fa; border-radius: 0.25rem; word-break: break-all; }
-        #errorArea { margin-top: 1rem; }
-        #statusArea { margin-top: 1rem; }
-        .form-check-label { margin-left: 0.25rem; margin-right: 0.75rem; }
-        .algo-select-label, .mode-select-label { font-weight: bold; margin-right: 0.5rem; }
-        #dropZone { border: 3px dashed #0d6efd; border-radius: 0.5rem; padding: 2rem; text-align: center; background-color: #f8f9fa; transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out; cursor: pointer; }
-        #dropZone.dragover { border-color: #0a58ca; background-color: #cfe2ff; }
-        #dropZoneHelp { color: #6c757d; margin-bottom: 1rem; }
-        #fileNameDisplay { font-weight: normal; color: #6c757d; display: inline-block; /* 确保 span 占据空间 */ min-height: 1.5em; /* 给点最小高度 */}
-        #fileNameDisplay.selected { font-weight: bold; color: #0a58ca; } /* 选中文件后的样式 */
-        .btn-lg { padding: 0.75rem 1.25rem; font-size: 1.1rem; }
+        body, .main-bg {
+            background: linear-gradient(135deg, #f4f6fa 60%, #e3eafc 100%);
+            font-size: 1.16rem;
+        }
+        .main-panel {
+            max-width: 1400px;
+            background: #fff;
+            border-radius: 2.2rem;
+            box-shadow: 0 8px 48px 0 rgba(60, 80, 180, 0.10), 0 1.5px 8px #e0e6ed;
+            margin: 36px auto 0 auto;
+            padding: 0 0.5rem;
+        }
+        .main-panel .col-md-5, .main-panel .col-md-7 {
+            min-height: 650px;
+        }
+        .main-panel h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1.7rem;
+            letter-spacing: 1px;
+        }
+        .main-panel .form-check-label {
+            font-weight: 600;
+            font-size: 1.18rem;
+        }
+        .main-panel .section-title {
+            font-weight: bold;
+            font-size: 1.22rem;
+            margin-bottom: 0.5rem;
+        }
+        #dropZone {
+            border: 2.5px dashed #4f8cff;
+            border-radius: 1.2rem;
+            padding: 2.4rem 1.2rem;
+            background: #f6faff;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        #dropZone.dragover {
+            border-color: #198754;
+            background: #e9fbe5;
+        }
+        #fileNameDisplay {
+            min-height: 1.5em;
+            font-weight: 900;
+            color: #fff;
+            background: linear-gradient(90deg, #38d39f 0%, #198754 100%);
+            border-radius: 0.7rem;
+            padding: 0.25em 1.1em 0.25em 2.2em;
+            margin-left: 0.7em;
+            font-size: 1.13em;
+            display: inline-block;
+            box-shadow: 0 2px 8px #b6e6c6;
+            border: none;
+            position: relative;
+            letter-spacing: 0.5px;
+            animation: fileSelectedFlash 1.2s;
+            transition: box-shadow 0.2s, background 0.2s;
+        }
+        #fileNameDisplay::before {
+            content: '\2714';
+            position: absolute;
+            left: 0.7em;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.15em;
+            color: #fff;
+            background: #198754;
+            border-radius: 50%;
+            width: 1.3em;
+            height: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 4px #b6e6c6;
+        }
+        @keyframes fileSelectedFlash {
+            0%   { box-shadow: 0 0 0 6px #b6e6c6; }
+            80%  { box-shadow: 0 0 0 0px #b6e6c6; }
+            100% { box-shadow: 0 2px 8px #b6e6c6; }
+        }
+        #fileNameDisplay.empty {
+            color: #adb5bd;
+            background: #f6faff;
+            font-weight: normal;
+            border: none;
+            box-shadow: none;
+            padding: 0.2em 0.7em;
+            margin-left: 0.5em;
+            font-size: 1.08em;
+        }
+        #fileNameDisplay.empty::before {
+            display: none;
+        }
+        .btn-lg {
+            padding: 1.1rem 2.3rem;
+            font-size: 1.22rem;
+            border-radius: 0.8rem;
+            background: linear-gradient(90deg, #4f8cff 0%, #38d39f 100%);
+            color: #fff;
+            border: none;
+            box-shadow: 0 2px 8px #e0e0e0;
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .btn-lg:hover, .btn-lg:focus {
+            background: linear-gradient(90deg, #38d39f 0%, #4f8cff 100%);
+            color: #fff;
+            box-shadow: 0 4px 16px #b6e6c6;
+        }
+        .btn-outline-secondary.btn-lg {
+            background: #fff;
+            color: #4f8cff;
+            border: 2px solid #b6c6e6;
+            box-shadow: none;
+        }
+        .btn-outline-secondary.btn-lg:hover {
+            background: #e3eafc;
+            color: #198754;
+            border: 2px solid #b6e6c6;
+        }
+        .progress {
+            height: 1.7rem;
+            box-shadow: 0 2px 12px #e0e0e0;
+            border-radius: 1rem;
+            background: #e9fbe5;
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #38d39f 0%, #198754 100%) !important;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.08em;
+        }
+        .card-results, .card-welcome {
+            background: linear-gradient(120deg, #f8f9fa 80%, #e3eafc 100%);
+            border: 1.5px solid #d0d8e6;
+            border-radius: 1.3rem;
+            box-shadow: 0 4px 32px 0 rgba(60, 80, 180, 0.10);
+        }
+        .card-results h4, .card-welcome h4 {
+            font-size: 1.32rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        .card-results {
+            border: 2px solid #b6e6c6;
+            background: linear-gradient(120deg, #f8f9fa 80%, #e3fce6 100%);
+            box-shadow: 0 4px 32px 0 rgba(60, 180, 120, 0.10);
+        }
+        .card-welcome {
+            border: 2px solid #b6c6e6;
+            background: linear-gradient(120deg, #f8f9fa 80%, #e3eafc 100%);
+        }
+        .card-welcome ul, .card-results ul {
+            font-size: 1.18rem;
+            line-height: 2.0;
+        }
+        .algo-select-label, .mode-select-label {
+            font-weight: bold;
+            margin-right: 0.8rem;
+        }
+        .divider {
+            border-top: 2px solid #e9ecef;
+            margin: 2rem 0 1.5rem 0;
+        }
+        .col-md-7 {
+            min-height: 650px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #centerArea {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-welcome, .card-results, #statusArea, #errorArea, #progressBarContainer {
+            max-width: 720px;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .btn-outline-primary, .btn-outline-secondary {
+            border-radius: 0.6rem;
+            font-size: 1.13rem;
+        }
+        .form-control {
+            font-size: 1.16rem;
+            border-radius: 0.6rem;
+        }
+        .alert-danger {
+            font-size: 1.16rem;
+            border-radius: 0.8rem;
+        }
+        @media (max-width: 991px) {
+            .main-panel { max-width: 98vw; border-radius: 0.9rem; }
+        }
+        @media (max-width: 768px) {
+            .main-panel { flex-direction: column !important; }
+            .border-end { border-right: none !important; border-bottom: 1.5px solid #eee !important; }
+            .main-panel .col-md-5, .main-panel .col-md-7 { min-height: unset; }
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <header class="text-center mb-4">
-            <h1>文件压缩/解压缩</h1>
-            <p class="lead">使用 Huffman 或 LZW 算法</p>
-        </header>
-
-        <main>
-            <div class="mb-3 text-center">
-                <span class="algo-select-label">选择算法:</span>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="algorithm" id="algoHuffman" value="huffman" checked>
-                    <label class="form-check-label" for="algoHuffman">Huffman</label>
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="algorithm" id="algoLzw" value="lzw">
-                    <label class="form-check-label" for="algoLzw">LZW</label>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-light bg-transparent" style="position: absolute; top: 0; right: 0; z-index: 10; width: 100%;">
+      <div class="container-fluid justify-content-end">
+        <button id="langSwitchBtn" class="btn btn-outline-secondary btn-sm me-2">English</button>
+        <button id="darkModeBtn" class="btn btn-outline-secondary btn-sm">🌙 夜间模式</button>
+      </div>
+    </nav>
+    <div class="container-fluid main-bg py-4">
+      <div class="main-panel row mx-auto d-flex shadow-lg">
+        <!-- 左栏：参数与上传 -->
+        <div class="col-md-5 p-5 border-end d-flex flex-column justify-content-between">
+          <div>
+            <h2 id="mainTitle" class="mb-4">文件压缩与解压缩工具</h2>
+            <div class="mb-4">
+              <span class="algo-select-label" id="algoLabel">选择算法:</span>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="algorithm" id="algoHuffman" value="huffman" checked>
+                <label class="form-check-label" for="algoHuffman" id="labelHuffman">Huffman</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="algorithm" id="algoLzw" value="lzw">
+                <label class="form-check-label" for="algoLzw" id="labelLzw">LZW</label>
+              </div>
             </div>
-            <div class="mb-3 text-center">
-                 <span class="mode-select-label">操作模式:</span>
-                 <div class="form-check form-check-inline">
-                     <input class="form-check-input" type="radio" name="mode" id="modeCompress" value="compress" checked>
-                     <label class="form-check-label" for="modeCompress">压缩</label>
-                 </div>
-                 <div class="form-check form-check-inline">
-                     <input class="form-check-input" type="radio" name="mode" id="modeDecompress" value="decompress">
-                     <label class="form-check-label" for="modeDecompress">解压缩</label>
-                 </div>
+            <div class="mb-4">
+              <span class="mode-select-label" id="modeLabel">操作模式:</span>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mode" id="modeCompress" value="compress" checked>
+                <label class="form-check-label" for="modeCompress" id="labelCompress">压缩</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mode" id="modeDecompress" value="decompress">
+                <label class="form-check-label" for="modeDecompress" id="labelDecompress">解压缩</label>
+              </div>
             </div>
-
-            <div class="card p-3 mb-3" id="dropZone">
-                <p id="dropZoneHelp">将文件拖拽到此区域，或点击下方按钮选择</p>
-                <div class="input-group">
-                    <label for="fileInput" class="btn btn-outline-secondary">选择文件</label>
-                    <input type="file" class="form-control" id="fileInput" style="display: none;"> <span class="form-control text-muted" id="fileNameDisplay">(未选择文件)</span>
-                </div>
-                 <div id="algoHelp" class="form-text text-muted mt-2">
-                    提示：Huffman 对文本效果好，LZW 可能对某些重复性高的二进制数据有优势。两者对已压缩文件效果均不佳。解压时请上传对应算法生成的压缩文件（.huff 或 .lzw）。
-                </div>
+            <div class="file-upload-panel p-3 mb-4 shadow-sm">
+              <label for="fileInput" class="form-label" id="fileInputLabel">选择文件或文件夹：</label>
+              <input id="fileInput" type="file" name="file" class="form-control file-direct" webkitdirectory directory multiple style="display:none;">
+              <button type="button" id="customFileBtn" class="btn btn-outline-primary">选择文件</button>
+              <span id="customFileName" class="file-name-tip mt-2 empty">(未选择文件)</span>
             </div>
-
-            <div class="row g-3 justify-content-center">
-                <div class="col-auto">
-                    <button id="processButton" class="btn btn-primary btn-lg">开始处理</button>
-                </div>
-                <div class="col-auto">
-                     <button id="clearButton" class="btn btn-secondary btn-lg">清空输入</button>
-                </div>
+            <div id="dropZone" class="mb-3" style="border:2px dashed #4f8cff; border-radius:1em; padding:2em; text-align:center;">
+                <span id="dropZoneTip" style="font-size:1.18em;color:#4f8cff;">拖拽或粘贴文件/文件夹到此处上传</span>
             </div>
-
-            <div id="statusArea" class="text-center mt-3" style="display: none;">
-                 <div class="spinner-border text-primary" role="status">
-                     <span class="visually-hidden">处理中...</span>
-                 </div>
-                 <p class="mt-2">处理中，请稍候...</p>
+          </div>
+          <div class="d-flex justify-content-center gap-4 mt-3">
+            <button id="processButton" class="btn btn-primary btn-lg shadow-sm">开始处理</button>
+            <button id="clearButton" class="btn btn-outline-secondary btn-lg shadow-sm">清空输入</button>
+          </div>
+        </div>
+        <!-- 右栏：进度与结果/欢迎卡片，全部居中 -->
+        <div class="col-md-7 p-5 d-flex flex-column align-items-center justify-content-center h-100">
+          <div id="centerArea" class="w-100 d-flex flex-column align-items-center justify-content-center">
+            <div id="welcomeArea" class="card card-welcome p-5 my-4" style="display: block;">
+              <h4 id="welcomeTitle">欢迎使用文件压缩/解压缩工具</h4>
+              <ul>
+                <li id="welcomeItem1">支持 Huffman、LZW 算法，适合文本、图片、音频、视频、二进制等所有类型文件和文件夹。</li>
+                <li id="welcomeItem2">最大支持 20MB，支持任意格式（如 .txt .bin .dat .jpg .png .mp3 .mp4 .zip .huff .lzw 等）。</li>
+                <li id="welcomeItem3">压缩率、处理速度一目了然，结果可直接下载。</li>
+              </ul>
+              <div class="mt-4">
+                <a href="{{ url_for('static', filename='example/testfile.txt') }}" class="btn btn-outline-primary btn-sm me-2" download id="downloadExampleText">下载示例文本</a>
+                <a href="{{ url_for('static', filename='example/testfile.bin') }}" class="btn btn-outline-secondary btn-sm" download id="downloadExampleBin">下载示例二进制</a>
+              </div>
             </div>
-
-            <div id="errorArea" class="alert alert-danger mt-3" role="alert" style="display: none;">
-                 </div>
-
-            <div id="resultsArea" class="mt-4 p-3 bg-light border rounded" style="display: none;">
-                <h4>处理结果:</h4>
-                <ul id="metricsList" class="list-unstyled">
-                    </ul>
-                <div id="downloadLinkContainer">
-                    </div>
+            <div id="statusArea" class="text-center my-4" style="display: none;">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">处理中...</span>
+              </div>
+              <p class="mt-3">处理中，请稍候...</p>
             </div>
-            </main>
-
-        <footer class="text-center text-muted mt-5 mb-3">
-            <p>&copy; 2024-<span id="currentYear"></span> 压缩 Web App</p>
-        </footer>
+            <div class="progress mb-4" id="progressBarContainer" style="display:none;">
+              <div class="progress-bar bg-success" id="progressBar" style="width:0%">0%</div>
+            </div>
+            <div id="errorArea" class="alert alert-danger" role="alert" style="display: none;"></div>
+            <div id="resultsArea" class="card card-results p-5 my-4" style="display: none;">
+              <h4 id="resultTitle">处理结果</h4>
+              <ul id="metricsList" class="list-unstyled"></ul>
+              <div id="downloadLinkContainer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer class="text-center text-muted mt-5 mb-3" style="font-size:1.13rem;">
+        <p id="footerText">&copy; 2024-<span id="currentYear"></span> 压缩 Web App</p>
+      </footer>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <script>document.getElementById('currentYear').textContent = new Date().getFullYear();</script>
+    <!-- 帮助模态框 -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title help-title" id="helpModalLabel"><span style="font-size:1.4em;">🆘</span> 帮助与说明</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body help-section" style="font-size:1.15em;line-height:1.9;">
+            <hr>
+            <section class="help-block mb-4">
+              <h6 class="help-subtitle"><span style="color:#38d39f;">📦</span> 使用说明</h6>
+              <ul class="help-list">
+                <li>支持 <b>任意类型文件和文件夹</b> 压缩，压缩包为 <b>zip</b>，内部文件采用所选算法（Huffman/LZW）压缩。</li>
+                <li>解压缩支持 <b>.huff</b>、<b>.lzw</b> 文件和 <b>zip 文件夹包</b>（自动还原原始结构）。</li>
+                <li>支持批量上传、目录上传、拖拽、粘贴等多种方式。</li>
+                <li>自动检测文件编码，<span style="color:#ff9800;">非 UTF-8 文本会高亮提示</span>。</li>
+              </ul>
+            </section>
+            <section class="help-block mb-4">
+              <h6 class="help-subtitle"><span style="color:#4f8cff;">❓</span> 常见问题</h6>
+              <div class="qa-card">
+                <div class="qa-q"><b>Q:</b> 为什么有些文件解压后内容异常或乱码？</div>
+                <div class="qa-a"><b>A:</b> 可能是原文件编码不是 UTF-8，建议用记事本另存为 UTF-8 格式，或直接下载二进制文件。</div>
+              </div>
+              <div class="qa-card">
+                <div class="qa-q"><b>Q:</b> 支持哪些类型的文件和文件夹？</div>
+                <div class="qa-a"><b>A:</b> 支持所有类型的文件（文本、图片、音频、视频、二进制等）和文件夹，压缩时会自动打包为 zip。</div>
+              </div>
+              <div class="qa-card">
+                <div class="qa-q"><b>Q:</b> 解压缩支持哪些格式？</div>
+                <div class="qa-a"><b>A:</b> 支持 .huff、.lzw 算法压缩文件和 zip 文件夹包（自动还原原始结构）。</div>
+              </div>
+              <div class="qa-card">
+                <div class="qa-q"><b>Q:</b> 为什么压缩后体积反而变大？</div>
+                <div class="qa-a"><b>A:</b> 随机数据、已压缩文件或图片/音频等本身已压缩格式，使用通用算法可能体积增大。</div>
+              </div>
+            </section>
+            <section class="help-block mb-4">
+              <h6 class="help-subtitle"><span style="color:#ffb300;">💡</span> 算法原理简介</h6>
+              <div class="algo-card">
+                <b>Huffman 编码：</b> 基于字符/字节频率构建最优前缀树，适合文本压缩。<br>
+                <b>LZW 算法：</b> 基于字典的无损压缩，适合高重复二进制数据。
+              </div>
+            </section>
+            <div class="help-footer text-muted mt-3" style="font-size:0.98em;">
+              如有更多问题请联系开发者或查阅项目文档。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 悬浮帮助按钮，固定右下角 -->
+    <button id="helpButton" class="help-float-btn" data-bs-toggle="modal" data-bs-target="#helpModal" title="帮助">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="16" fill="none"/>
+        <text x="16" y="23" text-anchor="middle" font-size="22" font-family="Arial, Helvetica, sans-serif" fill="#fff" font-weight="bold">?</text>
+      </svg>
+    </button>
+    <script>
+        // 添加语言切换支持
+        const i18n = {
+            'zh': {
+                title: '文件压缩工具',
+                algorithm: '选择算法',
+                huffman: 'Huffman',
+                lzw: 'LZW',
+                mode: '操作模式',
+                compress: '压缩',
+                decompress: '解压缩',
+                selectFile: '选择文件或文件夹：',
+                dragDrop: '拖拽文件或文件夹到此处上传，或粘贴文件',
+                tips: '提示：',
+                tip1: 'Huffman 对文本效果好，LZW 适合高重复二进制数据。',
+                tip2: '支持 .txt, .log, .csv, .xml, .htm, .html, .c, .cpp, .java, .py, .js, .sql, .json, .md, .bmp, .bin, .dat 等格式。',
+                tip3: '解压时请上传对应算法生成的压缩文件(.huff 或 .lzw)。',
+                tip4: '支持上传整个目录（会自动打包为ZIP文件）。',
+                start: '开始处理',
+                clear: '清空输入',
+                help: '帮助',
+                welcome: '欢迎使用文件压缩/解压缩工具',
+                welcome1: '支持 Huffman、LZW 算法，适合文本和二进制文件。',
+                welcome2: '最大支持 20MB 文件，支持 .txt .bin .dat .huff .lzw 等格式。',
+                welcome3: '压缩率、处理速度一目了然，结果可直接下载。',
+                downloadExample: '下载示例文本',
+                downloadExampleBin: '下载示例二进制',
+                processing: '处理中，请稍候...',
+                results: '处理结果',
+                night: '🌙 夜间模式',
+                day: '☀️ 日间模式'
+            },
+            'en': {
+                title: 'File Compression Tool',
+                algorithm: 'Select Algorithm',
+                huffman: 'Huffman',
+                lzw: 'LZW',
+                mode: 'Operation Mode',
+                compress: 'Compress',
+                decompress: 'Decompress',
+                selectFile: 'Select File or Folder:',
+                dragDrop: 'Drag and drop files or folders here, or paste files',
+                tips: 'Tips:',
+                tip1: 'Huffman works well for text, LZW is suitable for highly repetitive binary data.',
+                tip2: 'Supports .txt, .log, .csv, .xml, .htm, .html, .c, .cpp, .java, .py, .js, .sql, .json, .md, .bmp, .bin, .dat and more.',
+                tip3: 'When decompressing, please upload files generated by the corresponding algorithm (.huff or .lzw).',
+                tip4: 'Supports uploading entire directories (will be automatically packed into ZIP).',
+                start: 'Start Processing',
+                clear: 'Clear Input',
+                help: 'Help',
+                welcome: 'Welcome to File Compression Tool',
+                welcome1: 'Supports Huffman and LZW algorithms, suitable for text and binary files.',
+                welcome2: 'Maximum file size: 20MB, supports .txt .bin .dat .huff .lzw and more.',
+                welcome3: 'Compression ratio and processing speed are clearly visible, results can be downloaded directly.',
+                downloadExample: 'Download Example Text',
+                downloadExampleBin: 'Download Example Binary',
+                processing: 'Processing, please wait...',
+                results: 'Processing Results',
+                night: '🌙 Night Mode',
+                day: '☀️ Day Mode'
+            }
+        };
+
+        let currentLang = 'zh';
+
+        function switchLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            updateUILanguage();
+            localStorage.setItem('language', currentLang);
+        }
+
+        function updateUILanguage() {
+            const lang = i18n[currentLang];
+            document.title = lang.title;
+            document.querySelector('.algo-select-label').textContent = lang.algorithm;
+            document.querySelector('label[for="algoHuffman"]').textContent = lang.huffman;
+            document.querySelector('label[for="algoLzw"]').textContent = lang.lzw;
+            document.querySelector('.mode-select-label').textContent = lang.mode;
+            document.querySelector('label[for="modeCompress"]').textContent = lang.compress;
+            document.querySelector('label[for="modeDecompress"]').textContent = lang.decompress;
+            document.querySelector('.form-label').textContent = lang.selectFile;
+            document.querySelector('#dropZone span').textContent = lang.dragDrop;
+            document.querySelector('.form-text .fw-bold').textContent = lang.tips;
+            const tips = document.querySelectorAll('.form-text ul li');
+            tips[0].textContent = lang.tip1;
+            tips[1].textContent = lang.tip2;
+            tips[2].textContent = lang.tip3;
+            tips[3].textContent = lang.tip4;
+            document.querySelector('#processButton').textContent = lang.start;
+            document.querySelector('#clearButton').textContent = lang.clear;
+            document.querySelector('#helpButton').textContent = lang.help;
+            document.querySelector('.card-welcome h4').textContent = lang.welcome;
+            const welcomeItems = document.querySelectorAll('.card-welcome ul li');
+            welcomeItems[0].textContent = lang.welcome1;
+            welcomeItems[1].textContent = lang.welcome2;
+            welcomeItems[2].textContent = lang.welcome3;
+            const downloadButtons = document.querySelectorAll('.card-welcome .btn');
+            downloadButtons[0].textContent = lang.downloadExample;
+            downloadButtons[1].textContent = lang.downloadExampleBin;
+            document.querySelector('#statusArea p').textContent = lang.processing;
+            document.querySelector('.card-results h4').textContent = lang.results;
+        }
+
+        // 页面加载时检查用户语言偏好
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedLang = localStorage.getItem('language');
+            if (savedLang) {
+                currentLang = savedLang;
+                updateUILanguage();
+            }
+        });
+    </script>
 </body>
 </html>

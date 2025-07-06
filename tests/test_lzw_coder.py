@@ -2,19 +2,17 @@
 
 import unittest
 import os
+import sys
 import random
 import struct
 import string
 
-# 假设 core_logic 在 Python 路径上
-try:
-    from core_logic.lzw_coder import lzw_compress, lzw_decompress
-except ImportError:
-    import sys
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    from core_logic.lzw_coder import lzw_compress, lzw_decompress
+# 添加项目根目录到Python路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from core_logic.lzw_coder import lzw_compress, lzw_decompress
 
 class TestLzwCoder(unittest.TestCase):
     """测试 lzw_coder.py 中的 lzw_compress 和 lzw_decompress 函数"""
